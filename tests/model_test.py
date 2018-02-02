@@ -12,3 +12,13 @@ def test__file__get_callables_for_file_with_one_function__returns_that_function(
     callables = list(file.get_callables())
     assert len(callables) == 1
     assert callables[0].get_name() == 'void a()'
+
+
+def test__file__get_callables_for_file_with_two_functions__returns_both_functions():
+    file = File('two_functions.cpp', unsaved_files=[('two_functions.cpp', 'void a() {}\nvoid b(const int i) {}\n')])
+    # TODO(KNR): how to ignore the second parameter when comparing Callables?
+    callables = list(file.get_callables())
+    assert len(callables) == 2
+    # TODO(KNR): how to pack comparison into a loop based on given expected names?
+    assert callables[0].get_name() == 'void a()'
+    assert callables[1].get_name() == 'void b(const int)'

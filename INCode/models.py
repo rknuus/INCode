@@ -39,3 +39,6 @@ class Callable(object):
     # TODO(KNR): replace by read-only attribute
     def get_name(self):
         return self.name_
+
+    def get_referenced_callables(self):
+        return []

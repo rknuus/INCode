@@ -11,15 +11,6 @@ def get_caller(call, parents):
 
 
 def is_function_call_of(funcdecl, call):
-    # TODO(KNR): figure out how to navigate to the FunctionDecl:
-    # | `-FunctionDecl 0x7f8e63765d00 <line:9:5, line:11:5> line:9:10 f 'void (void)'
-    # |   `-CompoundStmt 0x7f8e63765ed8 <col:14, line:11:5>
-    # |     `-CallExpr 0x7f8e63765ea0 <line:10:9, col:22> 'int'
-    # |       |-ImplicitCastExpr 0x7f8e63765e88 <col:9> 'int (*)(int, int)' <FunctionToPointerDecay>
-    # |       | `-DeclRefExpr 0x7f8e63765e30 <col:9> 'int (int, int)' lvalue Function 0x7f8e63765b58 'addition' 'int (int, int)'
-    # |       |-IntegerLiteral 0x7f8e63765df0 <col:18> 'int' 2
-    # |       `-IntegerLiteral 0x7f8e63765e10 <col:21> 'int' 3
-
     defn = call.get_definition()
     return (defn is not None) and (defn == funcdecl)
 
@@ -31,12 +22,6 @@ def fully_qualify(call):
         res = call.spelling + '::' + res
         call = call.semantic_parent
     return res
-
-
-def _get_dbg_info(node):
-    if node is None:
-        return ''
-    return '{} ({})'.format(node.displayname, node.kind)
 
 
 def find_funcs_and_calls(tu):
@@ -52,7 +37,7 @@ def find_funcs_and_calls(tu):
         elif node.location.file.name != filename:
             pass
         elif node.kind == CursorKind.CALL_EXPR:
-            calls.append(node)
+            calls.append(node)  # TODO(KNR): could append parent here
         elif node.kind == CursorKind.FUNCTION_DECL:
             funcs.append(node)
     return funcs, calls, parents

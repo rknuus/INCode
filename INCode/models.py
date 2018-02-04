@@ -13,9 +13,6 @@ class File(object):
             raise ValueError('Cannot parse file {}'.format(file))
 
     def get_callables(self):
-        return self._get_function_definitions()
-
-    def _get_function_definitions(self):
         filename = self.tu_.cursor.spelling
         for cursor in self.tu_.cursor.walk_preorder():
             if cursor.location.file is None or cursor.location.file.name != filename:

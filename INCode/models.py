@@ -1,6 +1,10 @@
 from clang.cindex import CursorKind, Index, TranslationUnitLoadError
 
 
+def _get_function_signature(cursor):
+    return '{} {}'.format(cursor.result_type.spelling, cursor.displayname)
+
+
 class File(object):
     '''Represents a file and provides a list of callables.'''
 
@@ -18,11 +22,7 @@ class File(object):
             if cursor.location.file is None or cursor.location.file.name != filename:
                 pass
             elif cursor.kind == CursorKind.FUNCTION_DECL:
-                yield Callable(self._get_function_signature(cursor), cursor)
-
-    @staticmethod
-    def _get_function_signature(cursor):
-        return '{} {}'.format(cursor.result_type.spelling, cursor.displayname)
+                yield Callable(_get_function_signature(cursor), cursor)
 
 
 class Callable(object):
@@ -38,4 +38,7 @@ class Callable(object):
         return self.name_
 
     def get_referenced_callables(self):
-        return []
+        for cursor in self.cursor_.walk_preorder():
+            if cursor.kind == CursorKind.CALL_EXPR:
+                definition = cursor.get_definition()
+                yield Callable(_get_function_signature(definition), definition)  # TODO(KNR): pass self as parent

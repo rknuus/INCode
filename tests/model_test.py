@@ -28,3 +28,24 @@ def test__file__get_referenced_callables_for_empty_function__returns_empty_list(
     file = File('non_referencing_function.cpp', unsaved_files=[('non_referencing_function.cpp', 'void a() {}\n')])
     callable = next(file.get_callables())
     assert list(callable.get_referenced_callables()) == []
+
+
+def test__file__get_referenced_callables_for_function_calling_another_one__returns_that_function():
+    file = File('referencing_function.cpp',
+                unsaved_files=[('referencing_function.cpp', 'void a() {}\nvoid b() {\na();\n}\n')])
+    callables = list(file.get_callables())
+    callable = callables[1]
+    referenced_callables = list(callable.get_referenced_callables())
+    assert len(referenced_callables) == 1
+    assert referenced_callables[0].get_name() == 'void a()'
+
+
+def test__file__get_referenced_callables_for_function_calling_two_others__returns_both_function():
+    file = File('referencing_function.cpp',
+                unsaved_files=[('referencing_function.cpp', 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')])
+    callables = list(file.get_callables())
+    callable = callables[2]
+    referenced_callables = list(callable.get_referenced_callables())
+    assert len(referenced_callables) == 2
+    assert referenced_callables[0].get_name() == 'void a()'
+    assert referenced_callables[1].get_name() == 'void b()'

@@ -49,3 +49,20 @@ def test__file__get_referenced_callables_for_function_calling_two_others__return
     assert len(referenced_callables) == 2
     assert referenced_callables[0].get_name() == 'void a()'
     assert referenced_callables[1].get_name() == 'void b()'
+
+
+def test__file__get_referenced_callables_for_referenced_function_in_another_file__returns_that_function():
+    # TODO(KNR): don't know how to use unsaved_files for multiple files...
+    # file = File(
+    #     'cross_tu_referencing_function.cpp',
+    #     args=['-I./'],
+    #     unsaved_files=[('cross_tu_referencing_function.cpp', '#include "dependency.h"\nvoid b() {\na();\n}\n'), (
+    #         'dependency.h', '#pragma once\nvoid a();\n'), ('dependency.cpp', '#include "dependency.h"\nvoid a() {}\n')
+    #                    ])
+    file = File('trials/cross_tu_referencing_function.cpp', args=['-I./trials'])
+    callables = list(file.get_callables())
+    # callable = callables[0]
+    callable = callables[1]
+    referenced_callables = list(callable.get_referenced_callables())
+    assert len(referenced_callables) == 1
+    assert referenced_callables[0].get_name() == 'void a()'

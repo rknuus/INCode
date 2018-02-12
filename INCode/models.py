@@ -17,11 +17,8 @@ class File(object):
             raise ValueError('Cannot parse file {}'.format(file))
 
     def get_callables(self):
-        filename = self.tu_.cursor.spelling
         for cursor in self.tu_.cursor.walk_preorder():
-            if cursor.location.file is None or cursor.location.file.name != filename:
-                pass
-            elif cursor.kind == CursorKind.FUNCTION_DECL:
+            if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
                 yield Callable(_get_function_signature(cursor), cursor)
 
 
@@ -40,5 +37,6 @@ class Callable(object):
     def get_referenced_callables(self):
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
-                definition = cursor.get_definition()
+                # TODO(KNR): what's the point of `get_definition()` in list_references_of_func.py?
+                definition = cursor.referenced
                 yield Callable(_get_function_signature(definition), definition)  # TODO(KNR): pass self as parent

@@ -22,4 +22,6 @@ int main() {
     int q = addition(5, 5);
     cout << "First result:  " << z << "\n";
     cout << "Second result: " << q << "\n";
+    imp::f();
+    cout << "Third result: " << imp::addition(1, 2) << "\n";
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from clang.cindex import *
+import sys
 
 
 def get_caller(call, parents):
@@ -43,14 +44,20 @@ def find_funcs_and_calls(tu):
     return funcs, calls, parents
 
 
+files = sys.argv[1:]
+if not files:
+    print('Error: missing file argument')
+    print('Usage: python list_references_of_func.py <source file(s)>')
+    sys.exit(1)
 idx = Index.create()
 args = '-x c++ --std=c++11'.split()
-tu = idx.parse('tmp.cpp', args=args)
-funcs, calls, parents = find_funcs_and_calls(tu)
-for func in funcs:
-    print(fully_qualify(func), func.location)
-    for call in calls:
-        if is_function_call_of(func, call):
-            caller = get_caller(call, parents)
-            print('- called by ', fully_qualify(caller), call.location)
-    print()
+for file in files:
+    tu = idx.parse(file, args=args)
+    funcs, calls, parents = find_funcs_and_calls(tu)
+    for func in funcs:
+        print(fully_qualify(func), func.location, func.get_usr())
+        for call in calls:
+            if is_function_call_of(func, call):
+                caller = get_caller(call, parents)
+                print('- called by ', fully_qualify(caller), call.location, caller.get_usr())
+        print()

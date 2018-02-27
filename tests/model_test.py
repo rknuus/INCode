@@ -66,3 +66,23 @@ def test__file__get_referenced_callables_for_referenced_function_in_another_file
     referenced_callables = list(callable.get_referenced_callables())
     assert len(referenced_callables) == 1
     assert referenced_callables[0].get_name() == 'void a()'
+
+
+def test__file__identify_definition_for_referenced_function_in_same_file__returns_that_definition():
+    file = File(
+        'identify_local_function.cpp',
+        unsaved_files=[('identify_local_function.cpp', 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')])
+    callables = list(file.get_callables())
+    callable = callables[2]
+    referenced_callables = list(callable.get_referenced_callables())
+    assert len(referenced_callables) == 2
+    assert referenced_callables[0].get_usr() == 'c:@F@a#'
+    assert referenced_callables[1].get_usr() == 'c:@F@b#'
+
+
+def test__file__identify_definition_for_referenced_function_in_another_file__returns_that_definition():
+    file = File('trials/cross_tu_referencing_function.cpp', args=['-I./trials'])
+    callables = list(file.get_callables())
+    callable = callables[1]
+    referenced_callables = list(callable.get_referenced_callables())
+    assert referenced_callables[0].get_usr() == 'c:@F@a#'

@@ -34,6 +34,9 @@ class Callable(object):
     def get_name(self):
         return self.name_
 
+    def get_usr(self):
+        return self.cursor_.get_usr()
+
     def get_referenced_callables(self):
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:

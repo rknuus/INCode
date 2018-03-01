@@ -1,4 +1,19 @@
 from INCode.models import Callable, File, Index
+import os
+import pytest
+import tempfile
+
+
+@pytest.fixture(scope='module')
+def two_translation_units():
+    with tempfile.TemporaryDirectory('two_translation_units') as directory:
+        with open(os.path.join(directory, 'dependency.h'), 'w') as file:
+            file.write('#pragma once\nvoid a();\n')
+        with open(os.path.join(directory, 'dependency.cpp'), 'w') as file:
+            file.write('#include "dependency.h"\nvoid a() {}\n')
+        with open(os.path.join(directory, 'cross_tu_referencing_function.cpp'), 'w') as file:
+            file.write('#include "dependency.h"\nvoid b() {\n    a();\n}\n')
+        yield directory
 
 
 def test__file__get_callables_for_empty_file__returns_empty_list():
@@ -59,7 +74,7 @@ def test__file__get_referenced_callables_for_function_calling_two_others__return
     assert referenced_callables[1].get_name() == 'void b()'
 
 
-def test__file__get_referenced_callables_for_referenced_function_in_another_file__returns_that_function():
+def test__file__referenced_callables_of_another_file__returns_that_function(two_translation_units):
     index = Index()
     # TODO(KNR): don't know how to use unsaved_files for multiple files...
     # file = File(
@@ -68,8 +83,8 @@ def test__file__get_referenced_callables_for_referenced_function_in_another_file
     #     unsaved_files=[('cross_tu_referencing_function.cpp', '#include "dependency.h"\nvoid b() {\na();\n}\n'), (
     #         'dependency.h', '#pragma once\nvoid a();\n'), ('dependency.cpp', '#include "dependency.h"\nvoid a() {}\n')
     #                    ])
-    # TODO(KNR): generate bloody source files in a temporary directory
-    file = File('trials/cross_tu_referencing_function.cpp', index, args=['-I./trials'])
+    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
+    file = File(cross_tu, index, args=['-I./trials'])
     callables = list(file.get_callables())
     # callable = callables[0]
     callable = callables[1]
@@ -91,15 +106,6 @@ def test__file__identify_definition_for_referenced_function_in_same_file__return
     assert referenced_callables[1].get_usr() == 'c:@F@b#'
 
 
-def test__file__identify_definition_for_referenced_function_in_another_file__returns_that_definition():
-    index = Index()
-    file = File('trials/cross_tu_referencing_function.cpp', index, args=['-I./trials'])
-    callables = list(file.get_callables())
-    callable = callables[1]
-    referenced_callables = list(callable.get_referenced_callables())
-    assert referenced_callables[0].get_usr() == 'c:@F@a#'
-
-
 def test__file__get_callables_for_local_functions__registers_callables_in_index():
     index = Index()
     file = File(
@@ -111,11 +117,23 @@ def test__file__get_callables_for_local_functions__registers_callables_in_index(
     index.lookup('c:@F@c#').location.file.name == 'identify_local_function.cpp'
 
 
-def test__file__get_callables_for_function_in_another_file__registers_callables_in_index():
+def test__file__reference_function_in_another_file__registers_callables_in_index(two_translation_units):
     index = Index()
-    dependency_file = File('trials/dependency.cpp', index, args=['-I./trials'])
+    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
+    dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
+    dependency_file = File(dep_tu, index, args=['-I{}'.format(two_translation_units)])
     list(dependency_file.get_callables())
-    file = File('trials/cross_tu_referencing_function.cpp', index, args=['-I./trials'])
+    file = File(cross_tu, index, args=['-I{}'.format(two_translation_units)])
     list(file.get_callables())
-    index.lookup('c:@F@a#').location.file.name == './trials/dependency.cpp'
-    index.lookup('c:@F@b#').location.file.name == 'trials/cross_tu_referencing_function.cpp'
+    index.lookup('c:@F@a#').location.file.name == dep_tu
+    index.lookup('c:@F@b#').location.file.name == cross_tu
+
+
+def test__file__reference_functions_in_unparsed_file__registers_callables_in_index_anyway(two_translation_units):
+    index = Index()
+    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
+    dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
+    file = File(cross_tu, index, args=['-I{}'.format(two_translation_units)])
+    list(file.get_callables())
+    index.lookup('c:@F@a#').location.file.name == dep_tu
+    index.lookup('c:@F@b#').location.file.name == cross_tu

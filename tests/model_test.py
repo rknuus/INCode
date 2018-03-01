@@ -112,28 +112,67 @@ def test__file__get_callables_for_local_functions__registers_callables_in_index(
         'identify_local_function.cpp', index,
         unsaved_files=[('identify_local_function.cpp', 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')])
     list(file.get_callables())
-    index.lookup('c:@F@a#').location.file.name == 'identify_local_function.cpp'
-    index.lookup('c:@F@b#').location.file.name == 'identify_local_function.cpp'
-    index.lookup('c:@F@c#').location.file.name == 'identify_local_function.cpp'
+    assert index.lookup('c:@F@a#').location.file.name == 'identify_local_function.cpp'
+    assert index.lookup('c:@F@b#').location.file.name == 'identify_local_function.cpp'
+    assert index.lookup('c:@F@c#').location.file.name == 'identify_local_function.cpp'
 
 
-def test__file__reference_function_in_another_file__registers_callables_in_index(two_translation_units):
+def test__file__reference_function_in_unparsed_file__registers_callable_in_header(two_translation_units):
+    index = Index()
+    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
+    dep_header = os.path.join(two_translation_units, 'dependency.h')
+    file = File(cross_tu, index, args=['-I{}'.format(two_translation_units)])
+    list(file.get_callables())
+    assert index.lookup('c:@F@a#').location.file.name == dep_header
+    assert index.lookup('c:@F@b#').location.file.name == cross_tu
+
+
+def test__file__reference_function_in_another_file__registration_not_overwritten(two_translation_units):
     index = Index()
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
     dependency_file = File(dep_tu, index, args=['-I{}'.format(two_translation_units)])
     list(dependency_file.get_callables())
+    assert index.lookup('c:@F@a#').location.file.name == dep_tu
     file = File(cross_tu, index, args=['-I{}'.format(two_translation_units)])
     list(file.get_callables())
-    index.lookup('c:@F@a#').location.file.name == dep_tu
-    index.lookup('c:@F@b#').location.file.name == cross_tu
+    assert index.lookup('c:@F@a#').location.file.name == dep_tu
+    assert index.lookup('c:@F@b#').location.file.name == cross_tu
 
 
-def test__file__reference_functions_in_unparsed_file__registers_callables_in_index_anyway(two_translation_units):
+def test__file__internal_function_in_unparsed_file__function_is_unknown():
     index = Index()
-    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
-    dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
-    file = File(cross_tu, index, args=['-I{}'.format(two_translation_units)])
-    list(file.get_callables())
-    index.lookup('c:@F@a#').location.file.name == dep_tu
-    index.lookup('c:@F@b#').location.file.name == cross_tu
+    with tempfile.TemporaryDirectory('two_translation_units') as directory:
+        with open(os.path.join(directory, 'dependency.h'), 'w') as file:
+            file.write('#pragma once\nvoid a();\n')
+        with open(os.path.join(directory, 'dependency.cpp'), 'w') as file:
+            file.write('#include "dependency.h"\nvoid c() {}\nvoid a() {\nc();\n}\n')
+        with open(os.path.join(directory, 'cross_tu_referencing_function.cpp'), 'w') as file:
+            file.write('#include "dependency.h"\nvoid b() {\n    a();\n}\n')
+
+        cross_tu = os.path.join(directory, 'cross_tu_referencing_function.cpp')
+        file = File(cross_tu, index, args=['-I{}'.format(directory)])
+        list(file.get_callables())
+        with pytest.raises(KeyError):
+            index.lookup('c:@F@c#')
+
+
+def test__file__cross_referencing_function_in_file_parsed_later__get_function():
+    index = Index()
+    with tempfile.TemporaryDirectory('two_translation_units') as directory:
+        with open(os.path.join(directory, 'dependency.h'), 'w') as file:
+            file.write('#pragma once\nvoid a();\n')
+        with open(os.path.join(directory, 'dependency.cpp'), 'w') as file:
+            file.write('#include "dependency.h"\nvoid c() {}\nvoid a() {\nc();\n}\n')
+        with open(os.path.join(directory, 'cross_tu_referencing_function.cpp'), 'w') as file:
+            file.write('#include "dependency.h"\nvoid b() {\n    a();\n}\n')
+
+        cross_tu = os.path.join(directory, 'cross_tu_referencing_function.cpp')
+        dep_tu = os.path.join(directory, 'dependency.cpp')
+        file = File(cross_tu, index, args=['-I{}'.format(directory)])
+        list(file.get_callables())
+        with pytest.raises(KeyError):
+            index.lookup('c:@F@c#')
+        file = File(dep_tu, index, args=['-I{}'.format(directory)])
+        list(file.get_callables())
+        assert index.lookup('c:@F@c#').location.file.name == dep_tu

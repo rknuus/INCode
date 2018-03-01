@@ -13,6 +13,9 @@ class Index(object):
         self.table_ = {}
 
     def register(self, cursor):
+        # don't replace with new cursor if the old one already is a definition
+        if cursor.get_usr() in self.table_ and self.table_[cursor.get_usr()].is_definition():
+            return
         self.table_[cursor.get_usr()] = cursor
 
     def lookup(self, usr):

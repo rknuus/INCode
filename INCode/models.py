@@ -12,7 +12,7 @@ class Index(object):
         self.index_ = cindex.Index.create()
         self.table_ = {}
 
-    def parse(self, file, **kwargs):
+    def load(self, file, **kwargs):
         return File(file, self, **kwargs)
 
     def register(self, cursor):

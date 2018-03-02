@@ -76,7 +76,7 @@ def test__index__get_referenced_callables_for_function_calling_two_others__retur
     assert referenced_callables[1].get_name() == 'void b()'
 
 
-def test__index__referenced_callables_of_another_file__returns_that_function(two_translation_units):
+def test__index__get_referenced_callables_of_another_file__returns_that_function(two_translation_units):
     index = Index()
     # TODO(KNR): don't know how to use unsaved_files for multiple files...
     # file = File(
@@ -95,7 +95,7 @@ def test__index__referenced_callables_of_another_file__returns_that_function(two
     assert referenced_callables[0].get_name() == 'void a()'
 
 
-def test__index__identify_definition_for_referenced_function_in_same_file__returns_that_definition():
+def test__index__get_referenced_callables_for_referenced_function_in_same_file__returns_that_definition():
     index = Index()
     file = index.parse(
         'identify_local_function.cpp',
@@ -119,7 +119,7 @@ def test__index__get_callables_for_local_functions__registers_callables_in_index
     assert index.lookup('c:@F@c#').location.file.name == 'identify_local_function.cpp'
 
 
-def test__index__reference_function_in_unparsed_file__registers_callable_in_header(two_translation_units):
+def test__index__get_callables_for_function_in_unparsed_tu__registers_callable_in_header(two_translation_units):
     index = Index()
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_header = os.path.join(two_translation_units, 'dependency.h')
@@ -129,7 +129,7 @@ def test__index__reference_function_in_unparsed_file__registers_callable_in_head
     assert index.lookup('c:@F@b#').location.file.name == cross_tu
 
 
-def test__index__reference_function_in_another_file__registration_not_overwritten(two_translation_units):
+def test__index__get_callables_for_function_in_another_file__registration_not_overwritten(two_translation_units):
     index = Index()
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
@@ -142,7 +142,7 @@ def test__index__reference_function_in_another_file__registration_not_overwritte
     assert index.lookup('c:@F@b#').location.file.name == cross_tu
 
 
-def test__index__internal_function_in_unparsed_file__function_is_unknown():
+def test__index__get_callables_for_internal_function_in_unparsed_file__function_is_unknown():
     index = Index()
     with tempfile.TemporaryDirectory('two_translation_units') as directory:
         with open(os.path.join(directory, 'dependency.h'), 'w') as file:
@@ -159,7 +159,7 @@ def test__index__internal_function_in_unparsed_file__function_is_unknown():
             index.lookup('c:@F@c#')
 
 
-def test__index__cross_referencing_function_in_file_parsed_later__get_function():
+def test__index__get_callables_for_cross_referencing_function_in_file_parsed_later__get_function():
     index = Index()
     with tempfile.TemporaryDirectory('two_translation_units') as directory:
         with open(os.path.join(directory, 'dependency.h'), 'w') as file:

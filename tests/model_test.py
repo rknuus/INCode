@@ -17,25 +17,25 @@ def two_translation_units():
         yield directory
 
 
-def test__file__get_callables_for_empty_file__returns_empty_list():
+def test__index__get_callables_for_empty_file__returns_empty_list():
     index = Index()
-    file = File('empty.cpp', index, unsaved_files=[('empty.cpp', '\n')])
+    file = index.parse('empty.cpp', unsaved_files=[('empty.cpp', '\n')])
     assert list(file.get_callables()) == []
 
 
-def test__file__get_callables_for_file_with_one_function__returns_that_function():
+def test__index__get_callables_for_file_with_one_function__returns_that_function():
     index = Index()
-    file = File('one_function.cpp', index, unsaved_files=[('one_function.cpp', 'void a() {}\n')])
+    file = index.parse('one_function.cpp', unsaved_files=[('one_function.cpp', 'void a() {}\n')])
     # TODO(KNR): how to ignore the second parameter when comparing Callables?
     callables = list(file.get_callables())
     assert len(callables) == 1
     assert callables[0].get_name() == 'void a()'
 
 
-def test__file__get_callables_for_file_with_two_functions__returns_both_functions():
+def test__index__get_callables_for_file_with_two_functions__returns_both_functions():
     index = Index()
-    file = File('two_functions.cpp', index,
-                unsaved_files=[('two_functions.cpp', 'void a() {}\nvoid b(const int i) {}\n')])
+    file = index.parse('two_functions.cpp',
+                       unsaved_files=[('two_functions.cpp', 'void a() {}\nvoid b(const int i) {}\n')])
     # TODO(KNR): how to ignore the second parameter when comparing Callables?
     callables = list(file.get_callables())
     assert len(callables) == 2
@@ -44,18 +44,18 @@ def test__file__get_callables_for_file_with_two_functions__returns_both_function
     assert callables[1].get_name() == 'void b(const int)'
 
 
-def test__file__get_referenced_callables_for_empty_function__returns_empty_list():
+def test__index__get_referenced_callables_for_empty_function__returns_empty_list():
     index = Index()
-    file = File('non_referencing_function.cpp', index,
-                unsaved_files=[('non_referencing_function.cpp', 'void a() {}\n')])
+    file = index.parse('non_referencing_function.cpp',
+                       unsaved_files=[('non_referencing_function.cpp', 'void a() {}\n')])
     callable = next(file.get_callables())
     assert list(callable.get_referenced_callables()) == []
 
 
-def test__file__get_referenced_callables_for_function_calling_another_one__returns_that_function():
+def test__index__get_referenced_callables_for_function_calling_another_one__returns_that_function():
     index = Index()
-    file = File('referencing_function.cpp', index,
-                unsaved_files=[('referencing_function.cpp', 'void a() {}\nvoid b() {\na();\n}\n')])
+    file = index.parse('referencing_function.cpp',
+                       unsaved_files=[('referencing_function.cpp', 'void a() {}\nvoid b() {\na();\n}\n')])
     callables = list(file.get_callables())
     callable = callables[1]
     referenced_callables = list(callable.get_referenced_callables())
@@ -63,10 +63,11 @@ def test__file__get_referenced_callables_for_function_calling_another_one__retur
     assert referenced_callables[0].get_name() == 'void a()'
 
 
-def test__file__get_referenced_callables_for_function_calling_two_others__returns_both_function():
+def test__index__get_referenced_callables_for_function_calling_two_others__returns_both_function():
     index = Index()
-    file = File('referencing_function.cpp', index,
-                unsaved_files=[('referencing_function.cpp', 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')])
+    file = index.parse(
+        'referencing_function.cpp',
+        unsaved_files=[('referencing_function.cpp', 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')])
     callables = list(file.get_callables())
     callable = callables[2]
     referenced_callables = list(callable.get_referenced_callables())
@@ -75,7 +76,7 @@ def test__file__get_referenced_callables_for_function_calling_two_others__return
     assert referenced_callables[1].get_name() == 'void b()'
 
 
-def test__file__referenced_callables_of_another_file__returns_that_function(two_translation_units):
+def test__index__referenced_callables_of_another_file__returns_that_function(two_translation_units):
     index = Index()
     # TODO(KNR): don't know how to use unsaved_files for multiple files...
     # file = File(
@@ -85,7 +86,7 @@ def test__file__referenced_callables_of_another_file__returns_that_function(two_
     #         'dependency.h', '#pragma once\nvoid a();\n'), ('dependency.cpp', '#include "dependency.h"\nvoid a() {}\n')
     #                    ])
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
-    file = File(cross_tu, index, args=['-I./trials'])
+    file = index.parse(cross_tu, args=['-I./trials'])
     callables = list(file.get_callables())
     # callable = callables[0]
     callable = callables[1]
@@ -94,10 +95,10 @@ def test__file__referenced_callables_of_another_file__returns_that_function(two_
     assert referenced_callables[0].get_name() == 'void a()'
 
 
-def test__file__identify_definition_for_referenced_function_in_same_file__returns_that_definition():
+def test__index__identify_definition_for_referenced_function_in_same_file__returns_that_definition():
     index = Index()
-    file = File(
-        'identify_local_function.cpp', index,
+    file = index.parse(
+        'identify_local_function.cpp',
         unsaved_files=[('identify_local_function.cpp', 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')])
     callables = list(file.get_callables())
     callable = callables[2]
@@ -107,10 +108,10 @@ def test__file__identify_definition_for_referenced_function_in_same_file__return
     assert referenced_callables[1].get_usr() == 'c:@F@b#'
 
 
-def test__file__get_callables_for_local_functions__registers_callables_in_index():
+def test__index__get_callables_for_local_functions__registers_callables_in_index():
     index = Index()
-    file = File(
-        'identify_local_function.cpp', index,
+    file = index.parse(
+        'identify_local_function.cpp',
         unsaved_files=[('identify_local_function.cpp', 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')])
     list(file.get_callables())
     assert index.lookup('c:@F@a#').location.file.name == 'identify_local_function.cpp'
@@ -118,30 +119,30 @@ def test__file__get_callables_for_local_functions__registers_callables_in_index(
     assert index.lookup('c:@F@c#').location.file.name == 'identify_local_function.cpp'
 
 
-def test__file__reference_function_in_unparsed_file__registers_callable_in_header(two_translation_units):
+def test__index__reference_function_in_unparsed_file__registers_callable_in_header(two_translation_units):
     index = Index()
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_header = os.path.join(two_translation_units, 'dependency.h')
-    file = File(cross_tu, index, args=['-I{}'.format(two_translation_units)])
+    file = index.parse(cross_tu, args=['-I{}'.format(two_translation_units)])
     list(file.get_callables())
     assert index.lookup('c:@F@a#').location.file.name == dep_header
     assert index.lookup('c:@F@b#').location.file.name == cross_tu
 
 
-def test__file__reference_function_in_another_file__registration_not_overwritten(two_translation_units):
+def test__index__reference_function_in_another_file__registration_not_overwritten(two_translation_units):
     index = Index()
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
-    dependency_file = File(dep_tu, index, args=['-I{}'.format(two_translation_units)])
+    dependency_file = index.parse(dep_tu, args=['-I{}'.format(two_translation_units)])
     list(dependency_file.get_callables())
     assert index.lookup('c:@F@a#').location.file.name == dep_tu
-    file = File(cross_tu, index, args=['-I{}'.format(two_translation_units)])
+    file = index.parse(cross_tu, args=['-I{}'.format(two_translation_units)])
     list(file.get_callables())
     assert index.lookup('c:@F@a#').location.file.name == dep_tu
     assert index.lookup('c:@F@b#').location.file.name == cross_tu
 
 
-def test__file__internal_function_in_unparsed_file__function_is_unknown():
+def test__index__internal_function_in_unparsed_file__function_is_unknown():
     index = Index()
     with tempfile.TemporaryDirectory('two_translation_units') as directory:
         with open(os.path.join(directory, 'dependency.h'), 'w') as file:
@@ -152,13 +153,13 @@ def test__file__internal_function_in_unparsed_file__function_is_unknown():
             file.write('#include "dependency.h"\nvoid b() {\n    a();\n}\n')
 
         cross_tu = os.path.join(directory, 'cross_tu_referencing_function.cpp')
-        file = File(cross_tu, index, args=['-I{}'.format(directory)])
+        file = index.parse(cross_tu, args=['-I{}'.format(directory)])
         list(file.get_callables())
         with pytest.raises(KeyError):
             index.lookup('c:@F@c#')
 
 
-def test__file__cross_referencing_function_in_file_parsed_later__get_function():
+def test__index__cross_referencing_function_in_file_parsed_later__get_function():
     index = Index()
     with tempfile.TemporaryDirectory('two_translation_units') as directory:
         with open(os.path.join(directory, 'dependency.h'), 'w') as file:
@@ -170,11 +171,11 @@ def test__file__cross_referencing_function_in_file_parsed_later__get_function():
 
         cross_tu = os.path.join(directory, 'cross_tu_referencing_function.cpp')
         dep_tu = os.path.join(directory, 'dependency.cpp')
-        file = File(cross_tu, index, args=['-I{}'.format(directory)])
+        file = index.parse(cross_tu, args=['-I{}'.format(directory)])
         list(file.get_callables())
         with pytest.raises(KeyError):
             index.lookup('c:@F@c#')
-        file = File(dep_tu, index, args=['-I{}'.format(directory)])
+        file = index.parse(dep_tu, args=['-I{}'.format(directory)])
         list(file.get_callables())
         assert index.lookup('c:@F@c#').location.file.name == dep_tu
 

@@ -21,6 +21,9 @@ class Index(object):
     def lookup(self, usr):
         return self.table_[usr]
 
+    def is_known(self, usr):
+        return usr in self.table_
+
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):
         return self.index_

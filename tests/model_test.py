@@ -1,4 +1,5 @@
 from INCode.models import Callable, File, Index
+from unittest.mock import MagicMock
 import os
 import pytest
 import tempfile
@@ -176,3 +177,16 @@ def test__file__cross_referencing_function_in_file_parsed_later__get_function():
         file = File(dep_tu, index, args=['-I{}'.format(directory)])
         list(file.get_callables())
         assert index.lookup('c:@F@c#').location.file.name == dep_tu
+
+
+def test__index__is_known_for_unknown_function__returns_false():
+    index = Index()
+    assert not index.is_known('foo')
+
+
+def test__index__is_known_for_known_function__returns_true():
+    cursor_mock = MagicMock()
+    cursor_mock.get_usr.return_value = 'foo'
+    index = Index()
+    index.register(cursor_mock)
+    assert index.is_known('foo')

@@ -40,13 +40,18 @@ class File(object):
         self.index_ = index
         try:
             self.tu_ = self.index_.get_clang_index().parse(file, **kwargs)
+            self._initialize_callables()
         except TranslationUnitLoadError:
             raise ValueError('Cannot parse file {}'.format(file))
 
     def get_callables(self):
+        return self.callables_
+
+    def _initialize_callables(self):
+        self.callables_ = []
         for cursor in self.tu_.cursor.walk_preorder():
             if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
-                yield Callable(_get_function_signature(cursor), cursor, self.index_)
+                self.callables_.append(Callable(_get_function_signature(cursor), cursor, self.index_))
 
 
 class Callable(object):
@@ -58,6 +63,7 @@ class Callable(object):
         self.cursor_ = cursor
         self.index_ = index
         self.index_.register(cursor)
+        self._initialize_referenced_callables()
 
     # TODO(KNR): replace by read-only attribute
     def get_name(self):
@@ -67,9 +73,13 @@ class Callable(object):
         return self.cursor_.get_usr()
 
     def get_referenced_callables(self):
+        return self.referenced_callables_
+
+    def _initialize_referenced_callables(self):
+        self.referenced_callables_ = []
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
                 # TODO(KNR): what's the point of `get_definition()` in list_references_of_func.py?
                 definition = cursor.referenced
-                # TODO(KNR): pass self as parent
-                yield Callable(_get_function_signature(definition), definition, self.index_)
+                self.referenced_callables_.append(Callable(_get_function_signature(definition), definition,
+                                                           self.index_))

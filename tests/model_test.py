@@ -184,3 +184,14 @@ def test__index__is_known_for_known_function__returns_true():
     index = Index()
     index.register(cursor_mock)
     assert index.is_known('foo')
+
+
+def test__index__load_definition_for_function_defined_in_other_file__returns_definition(two_translation_units):
+    index = Index()
+    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
+    dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
+    index.load(cross_tu, args=['-I{}'.format(two_translation_units)])
+    declaration_cursor = index.lookup('c:@F@a#')
+    definition_cursor = index.load_definition(declaration_cursor, [cross_tu, dep_tu])
+    assert not declaration_cursor.is_definition()
+    assert definition_cursor.is_definition()

@@ -1,31 +1,60 @@
 from clang.cindex import CursorKind, TranslationUnitLoadError
 from clang import cindex
+import re
 
 
 def _get_function_signature(cursor):
     return '{} {}'.format(cursor.result_type.spelling, cursor.displayname)
 
 
+def gen_open(files):
+    for file in files:
+        yield open(file)
+
+
+def gen_search(pattern_text, files):
+    pattern = re.compile(pattern_text)
+    for file in files:
+        filename = file.name
+        for line in file:
+            if pattern.search(line):
+                yield filename
+                break
+
+
 class Index(object):
     def __init__(self):
         super(Index, self).__init__()
         self.index_ = cindex.Index.create()
-        self.table_ = {}
+        self.cursor_table_ = {}
+        self.file_table_ = {}
 
     def load(self, file, **kwargs):
-        return File(file, self, **kwargs)
+        if file in self.file_table_:
+            return self.file_table_[file]
+        f = File(file, self, **kwargs)
+        self.file_table_[file] = f
+        return f
+
+    def load_definition(self, declaration_cursor, files, **kwargs):
+        # TODO(KNR): method has too many responsibilities
+        translation_units = gen_open(files)
+        candidates = gen_search(declaration_cursor.displayname, translation_units)
+        for candidate in candidates:
+            self.load(candidate, **kwargs)
+        return self.cursor_table_[declaration_cursor.get_usr()]
 
     def register(self, cursor):
         # don't replace with new cursor if the old one already is a definition
-        if cursor.get_usr() in self.table_ and self.table_[cursor.get_usr()].is_definition():
+        if cursor.get_usr() in self.cursor_table_ and self.cursor_table_[cursor.get_usr()].is_definition():
             return
-        self.table_[cursor.get_usr()] = cursor
+        self.cursor_table_[cursor.get_usr()] = cursor
 
     def lookup(self, usr):
-        return self.table_[usr]
+        return self.cursor_table_[usr]
 
     def is_known(self, usr):
-        return usr in self.table_
+        return usr in self.cursor_table_
 
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):

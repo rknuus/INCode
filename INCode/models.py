@@ -41,8 +41,10 @@ class Index(object):
                 for values in self.compilation_databases_.values() for translation_unit in values]
 
     def load(self, file, **kwargs):
+        # TODO(KNR): assumes that the file name is unique
         if file in self.file_table_:
             return self.file_table_[file]
+        # TODO(KNR): consider to lookup compilation command in compilation database
         f = File(file, self, **kwargs)
         self.file_table_[file] = f
         return f

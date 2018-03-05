@@ -5,15 +5,51 @@ import pytest
 import tempfile
 
 
+def generate_file(directory, file, content):
+    with open(os.path.join(directory, file), 'w') as file:
+        file.write(content)
+
+
 @pytest.fixture(scope='module')
 def two_translation_units():
     with tempfile.TemporaryDirectory('two_translation_units') as directory:
-        with open(os.path.join(directory, 'dependency.h'), 'w') as file:
-            file.write('#pragma once\nvoid a();\n')
-        with open(os.path.join(directory, 'dependency.cpp'), 'w') as file:
-            file.write('#include "dependency.h"\nvoid a() {}\n')
-        with open(os.path.join(directory, 'cross_tu_referencing_function.cpp'), 'w') as file:
-            file.write('#include "dependency.h"\nvoid b() {\n    a();\n}\n')
+        generate_file(directory, 'dependency.h', '''
+                      #pragma once
+                      void a();
+                      ''')
+        generate_file(directory, 'dependency.cpp', '''
+                      #include "dependency.h"
+                      void a() {}
+                      ''')
+        generate_file(directory, 'cross_tu_referencing_function.cpp', '''
+                      #include "dependency.h"
+                      void b() {
+                          a();
+                      }
+                      ''')
+        yield directory
+
+
+@pytest.fixture(scope='module')
+def local_and_xref_dep():
+    with tempfile.TemporaryDirectory('local_and_xref_dep') as directory:
+        generate_file(directory, 'dependency.h', '''
+                      #pragma once
+                      void a();
+                      ''')
+        generate_file(directory, 'dependency.cpp', '''
+                      #include "dependency.h"
+                      void c() {}
+                      void a() {
+                          c();
+                      }
+                      ''')
+        generate_file(directory, 'cross_tu_referencing_function.cpp', '''
+                      #include "dependency.h"
+                      void b() {
+                          a();
+                      }
+                      ''')
         yield directory
 
 
@@ -138,39 +174,23 @@ def test__index__get_callables_for_function_in_another_file__registration_not_ov
     assert index.lookup('c:@F@b#').location.file.name == cross_tu
 
 
-def test__index__get_callables_for_internal_function_in_unparsed_file__function_is_unknown():
+def test__index__get_callables_for_internal_function_in_unparsed_file__function_is_unknown(local_and_xref_dep):
     index = Index()
-    with tempfile.TemporaryDirectory('two_translation_units') as directory:
-        with open(os.path.join(directory, 'dependency.h'), 'w') as file:
-            file.write('#pragma once\nvoid a();\n')
-        with open(os.path.join(directory, 'dependency.cpp'), 'w') as file:
-            file.write('#include "dependency.h"\nvoid c() {}\nvoid a() {\nc();\n}\n')
-        with open(os.path.join(directory, 'cross_tu_referencing_function.cpp'), 'w') as file:
-            file.write('#include "dependency.h"\nvoid b() {\n    a();\n}\n')
-
-        cross_tu = os.path.join(directory, 'cross_tu_referencing_function.cpp')
-        index.load(cross_tu, args=['-I{}'.format(directory)])
-        with pytest.raises(KeyError):
-            index.lookup('c:@F@c#')
+    cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
+    index.load(cross_tu, args=['-I{}'.format(local_and_xref_dep)])
+    with pytest.raises(KeyError):
+        index.lookup('c:@F@c#')
 
 
-def test__index__get_callables_for_cross_referencing_function_in_file_parsed_later__get_function():
+def test__index__get_callables_for_cross_referencing_function_in_file_parsed_later__get_function(local_and_xref_dep):
     index = Index()
-    with tempfile.TemporaryDirectory('two_translation_units') as directory:
-        with open(os.path.join(directory, 'dependency.h'), 'w') as file:
-            file.write('#pragma once\nvoid a();\n')
-        with open(os.path.join(directory, 'dependency.cpp'), 'w') as file:
-            file.write('#include "dependency.h"\nvoid c() {}\nvoid a() {\nc();\n}\n')
-        with open(os.path.join(directory, 'cross_tu_referencing_function.cpp'), 'w') as file:
-            file.write('#include "dependency.h"\nvoid b() {\n    a();\n}\n')
-
-        cross_tu = os.path.join(directory, 'cross_tu_referencing_function.cpp')
-        dep_tu = os.path.join(directory, 'dependency.cpp')
-        index.load(cross_tu, args=['-I{}'.format(directory)])
-        with pytest.raises(KeyError):
-            index.lookup('c:@F@c#')
-        index.load(dep_tu, args=['-I{}'.format(directory)])
-        assert index.lookup('c:@F@c#').location.file.name == dep_tu
+    cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
+    dep_tu = os.path.join(local_and_xref_dep, 'dependency.cpp')
+    index.load(cross_tu, args=['-I{}'.format(local_and_xref_dep)])
+    with pytest.raises(KeyError):
+        index.lookup('c:@F@c#')
+    index.load(dep_tu, args=['-I{}'.format(local_and_xref_dep)])
+    assert index.lookup('c:@F@c#').location.file.name == dep_tu
 
 
 def test__index__is_known_for_unknown_function__returns_false():

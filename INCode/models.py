@@ -27,7 +27,7 @@ class Index(object):
     def __init__(self):
         super(Index, self).__init__()
         self.index_ = cindex.Index.create()
-        self.cursor_table_ = {}
+        self.callable_table_ = {}
         self.file_table_ = {}
         self.compilation_databases_ = {}
 
@@ -49,25 +49,24 @@ class Index(object):
         self.file_table_[file] = f
         return f
 
-    def load_definition(self, declaration_cursor, files, **kwargs):
-        # TODO(KNR): method has too many responsibilities
-        translation_units = gen_open(files)
-        candidates = gen_search(declaration_cursor.displayname, translation_units)
+    def load_definition(self, declaration_cursor, **kwargs):
+        translation_units = gen_open(self.get_files())
+        candidates = gen_search(declaration_cursor.get_name(), translation_units)
         for candidate in candidates:
             self.load(candidate, **kwargs)
-        return self.cursor_table_[declaration_cursor.get_usr()]
+        return self.callable_table_[declaration_cursor.get_usr()]
 
-    def register(self, cursor):
-        # don't replace with new cursor if the old one already is a definition
-        if cursor.get_usr() in self.cursor_table_ and self.cursor_table_[cursor.get_usr()].is_definition():
+    def register(self, callable):
+        # don't replace with new callable if the old one already is a definition
+        if callable.get_usr() in self.callable_table_ and self.callable_table_[callable.get_usr()].is_definition():
             return
-        self.cursor_table_[cursor.get_usr()] = cursor
+        self.callable_table_[callable.get_usr()] = callable
 
     def lookup(self, usr):
-        return self.cursor_table_[usr]
+        return self.callable_table_[usr]
 
     def is_known(self, usr):
-        return usr in self.cursor_table_
+        return usr in self.callable_table_
 
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):
@@ -104,8 +103,8 @@ class Callable(object):
         self.name_ = name
         self.cursor_ = cursor
         self.index_ = index
-        self.index_.register(cursor)
         self._initialize_referenced_callables()
+        self.index_.register(self)
 
     # TODO(KNR): replace by read-only attribute
     def get_name(self):
@@ -114,6 +113,9 @@ class Callable(object):
     def get_usr(self):
         return self.cursor_.get_usr()
 
+    def is_definition(self):
+        return self.cursor_.is_definition()
+
     def get_referenced_callables(self):
         return self.referenced_callables_
 
@@ -121,7 +123,6 @@ class Callable(object):
         self.referenced_callables_ = []
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
-                # TODO(KNR): what's the point of `get_definition()` in list_references_of_func.py?
                 definition = cursor.referenced
                 self.referenced_callables_.append(Callable(_get_function_signature(definition), definition,
                                                            self.index_))

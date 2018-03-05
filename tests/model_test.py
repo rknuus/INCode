@@ -195,3 +195,17 @@ def test__index__load_definition_for_function_defined_in_other_file__returns_def
     definition_cursor = index.load_definition(declaration_cursor, [cross_tu, dep_tu])
     assert not declaration_cursor.is_definition()
     assert definition_cursor.is_definition()
+
+
+def test__index__add_compilation_database__can_get_list_of_translation_units():
+    with tempfile.TemporaryDirectory('compilation_database') as directory:
+        database = os.path.join(directory, 'compile_commands.json')
+        with open(database, 'w') as file:
+            file.write(
+                '[{\n"directory": "/foo",\n"command": "compiler -SOME -FLAGS /foo/bar.cpp",\n"file": "/foo/bar.cpp"},\n'
+                '{\n"directory": "/foo/bar",\n"command": "compiler -SOME -FLAGS /foo/bar/baz.cpp",\n"file": "/foo/bar/baz.cpp"}]')
+        index = Index()
+        index.add_compilation_database(database)
+        files = index.get_files()
+        assert '/foo/bar.cpp' in files
+        assert '/foo/bar/baz.cpp' in files

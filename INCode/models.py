@@ -1,5 +1,6 @@
 from clang.cindex import CursorKind, TranslationUnitLoadError
 from clang import cindex
+import json
 import re
 
 
@@ -28,6 +29,16 @@ class Index(object):
         self.index_ = cindex.Index.create()
         self.cursor_table_ = {}
         self.file_table_ = {}
+        self.compilation_databases_ = {}
+
+    def add_compilation_database(self, compilation_database):
+        with open(compilation_database) as file:
+            db = json.load(file)
+            self.compilation_databases_[compilation_database] = db
+
+    def get_files(self):
+        return [translation_unit['file']
+                for values in self.compilation_databases_.values() for translation_unit in values]
 
     def load(self, file, **kwargs):
         if file in self.file_table_:

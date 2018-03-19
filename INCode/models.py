@@ -1,6 +1,5 @@
 from clang.cindex import CursorKind, TranslationUnitLoadError
 from clang import cindex
-import json
 import re
 
 
@@ -31,21 +30,35 @@ class Index(object):
         self.file_table_ = {}
         self.compilation_databases_ = {}
 
-    def add_compilation_database(self, compilation_database):
-        with open(compilation_database) as file:
-            db = json.load(file)
-            self.compilation_databases_[compilation_database] = db
+    def add_compilation_database(self, compilation_database_directory):
+        db = cindex.CompilationDatabase.fromDirectory(compilation_database_directory)
+        self.compilation_databases_[compilation_database_directory] = db
 
     def get_files(self):
-        return [translation_unit['file']
-                for values in self.compilation_databases_.values() for translation_unit in values]
+        return [compile_command.filename for compilation_database in self.compilation_databases_.values() for
+                compile_command in compilation_database.getAllCompileCommands()]
 
-    def load(self, file, **kwargs):
+    def get_command(self, file):
+        for db in self.compilation_databases_.values():
+            # try:
+            commands = db.getCompileCommands(file)
+            # TODO(KNR): WTF? why do I have to fumble around with the CompileCommands internals?
+            if commands:
+                assert len(commands) == 1
+                command = commands[0]
+                return list(command.arguments)
+            # except CompilationDatabaseError:
+            #     pass  # TODO(KNR): ??
+        return None
+
+    def load(self, file):
         # TODO(KNR): assumes that the file name is unique
         if file in self.file_table_:
             return self.file_table_[file]
-        # TODO(KNR): consider to lookup compilation command in compilation database
-        f = File(file, self, **kwargs)
+        command = self.get_command(file)
+        if not command:
+            raise ValueError('No compilation command found for {}'.format(file))
+        f = File(file, self, command)
         self.file_table_[file] = f
         return f
 
@@ -76,11 +89,11 @@ class Index(object):
 class File(object):
     '''Represents a file and provides a list of callables.'''
 
-    def __init__(self, file, index, **kwargs):
+    def __init__(self, file, index, command):
         super(File, self).__init__()
         self.index_ = index
         try:
-            self.tu_ = self.index_.get_clang_index().parse(file, **kwargs)
+            self.tu_ = self.index_.get_clang_index().parse(None, command)
             self._initialize_callables()
         except TranslationUnitLoadError:
             raise ValueError('Cannot parse file {}'.format(file))

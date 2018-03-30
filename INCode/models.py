@@ -44,7 +44,7 @@ class Index(object):
             commands = db.getCompileCommands(file)
             # TODO(KNR): WTF? why do I have to fumble around with the CompileCommands internals?
             if commands:
-                assert len(commands) == 1
+                assert len(commands) >= 1
                 command = commands[0]
                 return list(command.arguments)
             # except CompilationDatabaseError:
@@ -62,6 +62,7 @@ class Index(object):
         self.file_table_[file] = f
         return f
 
+    # TODO(KNR): is kwargs still required/useful?
     def load_definition(self, declaration_cursor, **kwargs):
         translation_units = gen_open(self.get_files())
         candidates = gen_search(declaration_cursor.get_name(), translation_units)
@@ -105,6 +106,7 @@ class File(object):
         self.callables_ = []
         for cursor in self.tu_.cursor.walk_preorder():
             if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
+                # TODO(KNR): prevent duplicates
                 self.callables_.append(Callable(_get_function_signature(cursor), cursor, self.index_))
 
 
@@ -136,6 +138,7 @@ class Callable(object):
         self.referenced_callables_ = []
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
+                # TODO(KNR): prevent duplicates
                 definition = cursor.referenced
                 self.referenced_callables_.append(Callable(_get_function_signature(definition), definition,
                                                            self.index_))

@@ -23,11 +23,12 @@ setup(
     scripts=[
         'INCode/bin/INCode'
     ],
+    python_requires='>=3',
     install_requires=[
-        'clang>=5.0'
+        'clang>=5.0', 'PyQt5'
     ],
     classifiers=[
-        'Intended Audience :: Developers', 'Natural Language :: English', 'Programming Language :: Python :: 2'
+        'Intended Audience :: Developers', 'Natural Language :: English', 'Programming Language :: Python :: 3'
     ],
     setup_requires=[
         'pytest-runner'
@@ -35,6 +36,9 @@ setup(
     tests_require=[
         'mock', 'pytest'
     ],
+    extras_require={
+        'dev': ['pyqt5-tools']
+    },
     long_description='''
 INCode is an interactive diagram generator of C/C++ source code.
 You specify an entry point, from where on INCode let's you navigate callables

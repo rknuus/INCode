@@ -1,2 +1,7 @@
 #include "dependency.h"
-void a() {}
+
+void c() {}
+
+void a() {
+    c();
+}

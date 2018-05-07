@@ -189,9 +189,9 @@ def test__index__get_callables_for_local_functions__registers_callables_in_index
     index = Index()
     index.add_compilation_database(directory)
     index.load(tu)
-    assert index.lookup('c:@F@a#').cursor_.location.file.name == tu
-    assert index.lookup('c:@F@b#').cursor_.location.file.name == tu
-    assert index.lookup('c:@F@c#').cursor_.location.file.name == tu
+    assert index.callable_table_['c:@F@a#'].cursor_.location.file.name == tu
+    assert index.callable_table_['c:@F@b#'].cursor_.location.file.name == tu
+    assert index.callable_table_['c:@F@c#'].cursor_.location.file.name == tu
 
 
 def test__index__get_callables_for_function_in_unparsed_tu__registers_callable_in_header(two_translation_units):
@@ -200,8 +200,8 @@ def test__index__get_callables_for_function_in_unparsed_tu__registers_callable_i
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_header = os.path.join(two_translation_units, 'dependency.h')
     index.load(cross_tu)
-    assert index.lookup('c:@F@a#').cursor_.location.file.name == dep_header
-    assert index.lookup('c:@F@b#').cursor_.location.file.name == cross_tu
+    assert index.callable_table_['c:@F@a#'].cursor_.location.file.name == dep_header
+    assert index.callable_table_['c:@F@b#'].cursor_.location.file.name == cross_tu
 
 
 def test__index__get_callables_for_function_in_another_file__registration_not_overwritten(two_translation_units):
@@ -210,10 +210,10 @@ def test__index__get_callables_for_function_in_another_file__registration_not_ov
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
     index.load(dep_tu)
-    assert index.lookup('c:@F@a#').cursor_.location.file.name == dep_tu
+    assert index.callable_table_['c:@F@a#'].cursor_.location.file.name == dep_tu
     index.load(cross_tu)
-    assert index.lookup('c:@F@a#').cursor_.location.file.name == dep_tu
-    assert index.lookup('c:@F@b#').cursor_.location.file.name == cross_tu
+    assert index.callable_table_['c:@F@a#'].cursor_.location.file.name == dep_tu
+    assert index.callable_table_['c:@F@b#'].cursor_.location.file.name == cross_tu
 
 
 def test__index__get_callables_for_internal_function_in_unparsed_file__function_is_unknown(local_and_xref_dep):
@@ -223,7 +223,7 @@ def test__index__get_callables_for_internal_function_in_unparsed_file__function_
     # dep_tu = os.path.join(local_and_xref_dep, 'dependency.cpp')
     index.load(cross_tu)
     with pytest.raises(KeyError):
-        index.lookup('c:@F@c#')
+        index.callable_table_['c:@F@c#']
 
 
 def test__index__get_callables_for_cross_referencing_function_in_file_parsed_later__get_function(local_and_xref_dep):
@@ -232,23 +232,24 @@ def test__index__get_callables_for_cross_referencing_function_in_file_parsed_lat
     cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
     index.load(cross_tu)
     with pytest.raises(KeyError):
-        index.lookup('c:@F@c#')
+        index.callable_table_['c:@F@c#']
     dep_tu = os.path.join(local_and_xref_dep, 'dependency.cpp')
     index.load(dep_tu)
-    assert index.lookup('c:@F@c#').cursor_.location.file.name == dep_tu
+    assert index.callable_table_['c:@F@c#'].cursor_.location.file.name == dep_tu
 
 
-def test__index__is_known_for_unknown_function__returns_false():
+def test__index__unknown_function__not_in_index():
     index = Index()
-    assert not index.is_known('foo')
+    with pytest.raises(KeyError):
+        index.callable_table_['foo']
 
 
-def test__index__is_known_for_known_function__returns_true():
+def test__index__known_function__in_index():
     cursor_mock = MagicMock()
     cursor_mock.get_usr.return_value = 'foo'
     index = Index()
     index.register(cursor_mock)
-    assert index.is_known('foo')
+    assert index.callable_table_['foo']
 
 
 def test__index__load_definition_for_function_defined_in_other_file__returns_definition(two_translation_units):
@@ -256,7 +257,7 @@ def test__index__load_definition_for_function_defined_in_other_file__returns_def
     index.add_compilation_database(two_translation_units)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     index.load(cross_tu)
-    declaration = index.lookup('c:@F@a#')
+    declaration = index.callable_table_['c:@F@a#']
     definition = index.load_definition(declaration)
     assert not declaration.is_definition()
     assert definition.is_definition()

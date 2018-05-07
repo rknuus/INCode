@@ -72,15 +72,12 @@ class Index(object):
 
     def register(self, callable):
         # don't replace with new callable if the old one already is a definition
-        if callable.get_usr() in self.callable_table_ and self.callable_table_[callable.get_usr()].is_definition():
+        if not self.is_interesting(callable):
             return
         self.callable_table_[callable.get_usr()] = callable
 
-    def lookup(self, usr):
-        return self.callable_table_[usr]
-
-    def is_known(self, usr):
-        return usr in self.callable_table_
+    def is_interesting(self, callable):
+        return (callable.get_usr() not in self.callable_table_ or callable.is_definition())
 
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):
@@ -106,20 +103,28 @@ class File(object):
         self.callables_ = []
         for cursor in self.tu_.cursor.walk_preorder():
             if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
-                # TODO(KNR): prevent duplicates
-                self.callables_.append(Callable(_get_function_signature(cursor), cursor, self.index_))
+                callable = Callable(_get_function_signature(cursor), cursor, self.index_)
+                if self.index_.is_interesting(callable):
+                    # intentionally not performance-optimized
+                    for i, c in enumerate(self.callables_):
+                        if c.get_usr() == callable.get_usr():
+                            self.callables_[i] = callable
+                            break
+                    else:
+                        self.callables_.append(callable)
+                    self.index_.register(callable)
 
 
 class Callable(object):
     '''Represents a Callable and provides a list of callables used by this callable.'''
 
-    def __init__(self, name, cursor, index):
+    def __init__(self, name, cursor, index, initialize=True):
         super(Callable, self).__init__()
         self.name_ = name
         self.cursor_ = cursor
         self.index_ = index
-        self._initialize_referenced_callables()
-        self.index_.register(self)
+        if initialize:
+            self._initialize_referenced_callables()
 
     # TODO(KNR): replace by read-only attribute
     def get_name(self):
@@ -138,7 +143,17 @@ class Callable(object):
         self.referenced_callables_ = []
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
-                # TODO(KNR): prevent duplicates
                 definition = cursor.referenced
-                self.referenced_callables_.append(Callable(_get_function_signature(definition), definition,
-                                                           self.index_))
+                callable = Callable(_get_function_signature(definition), definition, self.index_, False)
+                if self.index_.is_interesting(callable):
+                    for i, c in enumerate(self.referenced_callables_):
+                        if c.get_usr() == callable.get_usr():
+                            self.referenced_callables_[i] = callable
+                            break
+                    else:
+                        self.referenced_callables_.append(callable)
+                    callable._initialize_referenced_callables()
+                    self.index_.register(callable)
+                else:
+                    # TODO(KNR): provide proper method to get the original callable
+                    self.referenced_callables_.append(self.index_.callable_table_[callable.get_usr()])

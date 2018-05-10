@@ -120,6 +120,18 @@ def test__file__get_callables_for_file_with_two_functions__returns_both_function
     assert callables[1].get_name() == 'void b(const int)'
 
 
+def test__file__get_callables_for_declared_and_then_defined_function__returns_only_definition(directory):
+    file = os.path.join(directory, 'declare_and_then_define_function.cpp')
+    generate_project(directory, {file: 'void a();\nvoid a() {}\n'})
+    index = Index()
+    index.add_compilation_database(directory)
+    file = index.load(file)
+    callables = file.get_callables()
+    assert len(callables) == 1
+    assert callables[0].get_name() == 'void a()'
+    assert callables[0].is_definition()
+
+
 def test__callable__get_referenced_callables_for_empty_function__returns_empty_list(directory):
     file = os.path.join(directory, 'non_referencing_function.cpp')
     generate_project(directory, {file: 'void a() {}\n'})
@@ -181,6 +193,20 @@ def test__callable__get_referenced_callables_for_referenced_function_in_same_fil
     assert len(referenced_callables) == 2
     assert referenced_callables[0].get_usr() == 'c:@F@a#'
     assert referenced_callables[1].get_usr() == 'c:@F@b#'
+
+
+def test__callable__get_referenced_callables_for_recursive_function__returns_only_definition(directory):
+    file = os.path.join(directory, 'recursive_function.cpp')
+    generate_project(directory, {file: 'void a();\nvoid a() {\n  a();\n}\n'})
+    index = Index()
+    index.add_compilation_database(directory)
+    file = index.load(file)
+    callables = file.get_callables()
+    callable = callables[0]
+    referenced_callables = callable.get_referenced_callables()
+    nested_referenced_callables = referenced_callables[0].get_referenced_callables()
+    assert len(referenced_callables) == 1
+    assert referenced_callables[0].get_name() == 'void a()'
 
 
 def test__index__load_translation_unit__registers_callables_in_index(directory):

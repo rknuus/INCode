@@ -22,6 +22,16 @@ def gen_search(pattern_text, files):
                 break
 
 
+def append_or_update(callable, list):
+    # intentionally not performance-optimized
+    for i, c in enumerate(list):
+        if c.get_usr() == callable.get_usr():
+            list[i] = callable
+            break
+    else:
+        list.append(callable)
+
+
 class Index(object):
     def __init__(self):
         super(Index, self).__init__()
@@ -105,13 +115,7 @@ class File(object):
             if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
                 callable = Callable(_get_function_signature(cursor), cursor, self.index_)
                 if self.index_.is_interesting(callable):
-                    # intentionally not performance-optimized
-                    for i, c in enumerate(self.callables_):
-                        if c.get_usr() == callable.get_usr():
-                            self.callables_[i] = callable
-                            break
-                    else:
-                        self.callables_.append(callable)
+                    append_or_update(callable, self.callables_)
                     self.index_.register(callable)
 
 
@@ -146,12 +150,7 @@ class Callable(object):
                 definition = cursor.referenced
                 callable = Callable(_get_function_signature(definition), definition, self.index_, False)
                 if self.index_.is_interesting(callable):
-                    for i, c in enumerate(self.referenced_callables_):
-                        if c.get_usr() == callable.get_usr():
-                            self.referenced_callables_[i] = callable
-                            break
-                    else:
-                        self.referenced_callables_.append(callable)
+                    append_or_update(callable, self.referenced_callables_)
                     callable._initialize_referenced_callables()
                     self.index_.register(callable)
                 else:

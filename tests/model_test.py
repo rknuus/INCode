@@ -108,7 +108,7 @@ def test__index__get_callables_for_file_with_one_function__returns_that_function
     assert callables[0].get_name() == 'void a()'
 
 
-def test__index__get_callables_for_file_with_two_functions__returns_both_functions(directory):
+def test__file__get_callables_for_file_with_two_functions__returns_both_functions(directory):
     file = os.path.join(directory, 'two_functions.cpp')
     generate_project(directory, {file: 'void a() {}\nvoid b(const int i) {}\n'})
     index = Index()
@@ -120,7 +120,7 @@ def test__index__get_callables_for_file_with_two_functions__returns_both_functio
     assert callables[1].get_name() == 'void b(const int)'
 
 
-def test__index__get_referenced_callables_for_empty_function__returns_empty_list(directory):
+def test__callable__get_referenced_callables_for_empty_function__returns_empty_list(directory):
     file = os.path.join(directory, 'non_referencing_function.cpp')
     generate_project(directory, {file: 'void a() {}\n'})
     index = Index()
@@ -130,7 +130,7 @@ def test__index__get_referenced_callables_for_empty_function__returns_empty_list
     assert callable.get_referenced_callables() == []
 
 
-def test__index__get_referenced_callables_for_function_calling_another_one__returns_that_function(directory):
+def test__callable__get_referenced_callables_for_function_calling_another_one__returns_that_function(directory):
     file = os.path.join(directory, 'referencing_function.cpp')
     generate_project(directory, {file: 'void a() {}\nvoid b() {\na();\n}\n'})
     index = Index()
@@ -143,7 +143,7 @@ def test__index__get_referenced_callables_for_function_calling_another_one__retu
     assert referenced_callables[0].get_name() == 'void a()'
 
 
-def test__index__get_referenced_callables_for_function_calling_two_others__returns_both_function(directory):
+def test__callable__get_referenced_callables_for_function_calling_two_others__returns_both_function(directory):
     file = os.path.join(directory, 'double_referencing_function.cpp')
     generate_project(directory, {file: 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n'})
     index = Index()
@@ -157,7 +157,7 @@ def test__index__get_referenced_callables_for_function_calling_two_others__retur
     assert referenced_callables[1].get_name() == 'void b()'
 
 
-def test__index__get_referenced_callables_of_another_file__returns_that_function(two_translation_units):
+def test__callable__get_referenced_callables_of_another_file__returns_that_function(two_translation_units):
     index = Index()
     index.add_compilation_database(two_translation_units)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
@@ -169,7 +169,7 @@ def test__index__get_referenced_callables_of_another_file__returns_that_function
     assert referenced_callables[0].get_name() == 'void a()'
 
 
-def test__index__get_referenced_callables_for_referenced_function_in_same_file__returns_that_definition(directory):
+def test__callable__get_referenced_callables_for_referenced_function_in_same_file__returns_that_definition(directory):
     file = os.path.join(directory, 'identify_local_function.cpp')
     generate_project(directory, {file: 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n'})
     index = Index()
@@ -183,7 +183,7 @@ def test__index__get_referenced_callables_for_referenced_function_in_same_file__
     assert referenced_callables[1].get_usr() == 'c:@F@b#'
 
 
-def test__index__get_callables_for_local_functions__registers_callables_in_index(directory):
+def test__index__load_translation_unit__registers_callables_in_index(directory):
     tu = os.path.join(directory, 'identify_local_function.cpp')
     generate_project(directory, {tu: 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n'})
     index = Index()
@@ -194,7 +194,7 @@ def test__index__get_callables_for_local_functions__registers_callables_in_index
     assert index.callable_table_['c:@F@c#'].cursor_.location.file.name == tu
 
 
-def test__index__get_callables_for_function_in_unparsed_tu__registers_callable_in_header(two_translation_units):
+def test__index__load_tu_referencing_function_in_another_file__registers_callable_in_header(two_translation_units):
     index = Index()
     index.add_compilation_database(two_translation_units)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
@@ -204,7 +204,7 @@ def test__index__get_callables_for_function_in_unparsed_tu__registers_callable_i
     assert index.callable_table_['c:@F@b#'].cursor_.location.file.name == cross_tu
 
 
-def test__index__get_callables_for_function_in_another_file__registration_not_overwritten(two_translation_units):
+def test__index__load_tu_referencing_function_in_another_file__registration_not_overwritten(two_translation_units):
     index = Index()
     index.add_compilation_database(two_translation_units)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
@@ -216,17 +216,7 @@ def test__index__get_callables_for_function_in_another_file__registration_not_ov
     assert index.callable_table_['c:@F@b#'].cursor_.location.file.name == cross_tu
 
 
-def test__index__get_callables_for_internal_function_in_unparsed_file__function_is_unknown(local_and_xref_dep):
-    index = Index()
-    index.add_compilation_database(local_and_xref_dep)
-    cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
-    # dep_tu = os.path.join(local_and_xref_dep, 'dependency.cpp')
-    index.load(cross_tu)
-    with pytest.raises(KeyError):
-        index.callable_table_['c:@F@c#']
-
-
-def test__index__get_callables_for_cross_referencing_function_in_file_parsed_later__get_function(local_and_xref_dep):
+def test__index__load_declaration_first_then_load_definition__get_function(local_and_xref_dep):
     index = Index()
     index.add_compilation_database(local_and_xref_dep)
     cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
@@ -238,13 +228,13 @@ def test__index__get_callables_for_cross_referencing_function_in_file_parsed_lat
     assert index.callable_table_['c:@F@c#'].cursor_.location.file.name == dep_tu
 
 
-def test__index__unknown_function__not_in_index():
+def test__index__lookup_unknown_function__function_is_not_in_index():
     index = Index()
     with pytest.raises(KeyError):
         index.callable_table_['foo']
 
 
-def test__index__known_function__in_index():
+def test__index__register_function__function_is_in_index():
     cursor_mock = MagicMock()
     cursor_mock.get_usr.return_value = 'foo'
     index = Index()

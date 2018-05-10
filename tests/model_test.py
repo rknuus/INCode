@@ -1,3 +1,5 @@
+# Copyright (C) 2018 R. Knuus
+
 from INCode.models import Callable, File, Index
 from unittest.mock import MagicMock
 import os

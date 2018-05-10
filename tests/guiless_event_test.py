@@ -1,3 +1,5 @@
+## Copyright (C) 2018 R. Knuus
+
 import mock
 import pytest
 from INCode.controllers import EntryController

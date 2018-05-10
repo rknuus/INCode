@@ -1,6 +1,7 @@
+# Copyright (C) 2018 R. Knuus
+
 #############################################################################
 ##
-## Copyright (C) 2018 R. Knuus
 ## Copyright (C) 2017 Riverbank Computing Limited.
 ## Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
 ## All rights reserved.

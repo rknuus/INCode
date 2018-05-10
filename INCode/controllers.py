@@ -1,3 +1,5 @@
+## Copyright (C) 2018 R. Knuus
+
 from clang.cindex import CursorKind, Index, TranslationUnitLoadError
 from INCode.views import EntryView
 

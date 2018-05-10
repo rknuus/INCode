@@ -1,3 +1,5 @@
+# Copyright (C) 2018 R. Knuus
+
 from INCode.diagramconfiguration import DiagramConfiguration
 from INCode.models import Index
 from INCode.ui_entrydialog import Ui_EntryDialog

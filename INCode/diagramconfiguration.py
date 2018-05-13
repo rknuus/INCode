@@ -41,9 +41,8 @@
 #############################################################################
 
 from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
-from PyQt5.QtCore import QAbstractItemModel, QFile, QIODevice, QItemSelectionModel, QModelIndex, Qt
-from PyQt5.QtGui import QStandardItem, QStandardItemModel
-from PyQt5.QtWidgets import QApplication, QDialog, QFileDialog, QMainWindow
+from PyQt5.QtCore import QAbstractItemModel, QItemSelectionModel, QModelIndex, Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow
 
 
 class TreeItem(object):

@@ -255,6 +255,12 @@ class TreeModel(QAbstractItemModel):
             node.setData(0, nodeData)
             self.setupModelData(children, node)
 
+    def getTopLevelItem(self):
+        top_level_item = self.root_item_.child(0)
+        if not top_level_item:
+            return QModelIndex()
+        return self.createIndex(0, 0, top_level_item)
+
 
 class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
     def __init__(self, index, entry_point_item, parent=None):
@@ -280,6 +286,9 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         self.actionsMenu_.aboutToShow.connect(self.updateActions)
         self.revealChildrenAction_.triggered.connect(self.revealChildren)
+        self.includeChildAction_.triggered.connect(self.includeChild)
+        self.excludeChildAction_.triggered.connect(self.excludeChild)
+        self.exportAction_.triggered.connect(self.export)
 
         self.updateActions()
 
@@ -308,6 +317,28 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         self.view_.selectionModel().setCurrentIndex(model.index(0, 0, index), QItemSelectionModel.ClearAndSelect)
         self.updateActions()
+
+    def includeChild(self):
+        # TODO(KNR): visualize inclusion
+        model = self.view_.model()
+        index = self.view_.selectionModel().currentIndex()
+        callable = model.getItem(index).data(0)
+        callable.include()
+
+    def excludeChild(self):
+        # TODO(KNR): visualize exclusion
+        model = self.view_.model()
+        index = self.view_.selectionModel().currentIndex()
+        callable = model.getItem(index).data(0)
+        callable.exclude()
+
+    def export(self):
+        model = self.view_.model()
+        top_level_item = model.getTopLevelItem()
+        if top_level_item.isValid():
+            callable = model.getItem(top_level_item).data(0)
+            print('exporting ', callable.get_name())
+            print(callable.export())
 
     def updateActions(self):
         hasSelection = not self.view_.selectionModel().selection().isEmpty()

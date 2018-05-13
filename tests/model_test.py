@@ -310,3 +310,160 @@ def test__scenario__select_entry_location_and_follow_references__data_model_is_c
 
     no_more_xref = local_xref[0].get_referenced_callables()
     assert len(no_more_xref) == 0
+
+
+def test__callable__check_whether_included__default_is_excluded():
+    callable = Callable('foo', MagicMock(), MagicMock())
+    assert not callable.is_included()
+
+
+def test__callable__include_and_check_whether_included__return_included():
+    callable = Callable('foo', MagicMock(), MagicMock())
+    callable.include()
+    assert callable.is_included()
+
+
+def test__callable__include_then_exclude_and_check_whether_included__return_included():
+    callable = Callable('foo', MagicMock(), MagicMock())
+    callable.include()
+    callable.exclude()
+    assert not callable.is_included()
+
+
+def test__callable__export_included_parent_calling_included_child__export_correct_diagram():
+    index = MagicMock()
+    parent_cursor = MagicMock()
+    parent_cursor.translation_unit.spelling = 'foo.cpp'
+    parent = Callable('foo', parent_cursor, index)
+    child_cursor = MagicMock()
+    child_cursor.translation_unit.spelling = 'bar.cpp'
+    child = Callable('baz', child_cursor, index)
+    parent.include()
+    child.include()
+    parent.referenced_callables_.append(child)
+    diagram = parent.export()
+    expected_diagram = '''@startuml
+
+foo.cpp -> bar.cpp: baz
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
+def test__callable__export_included_parent_calling_excluded_child__export_correct_diagram():
+    index = MagicMock()
+    parent_cursor = MagicMock()
+    parent_cursor.translation_unit.spelling = 'foo.cpp'
+    parent = Callable('foo', parent_cursor, index)
+    child_cursor = MagicMock()
+    child_cursor.translation_unit.spelling = 'bar.cpp'
+    child = Callable('baz', child_cursor, index)
+    parent.include()
+    child.exclude()
+    parent.referenced_callables_.append(child)
+    diagram = parent.export()
+    expected_diagram = '''@startuml
+
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
+def test__callable__export_excluded_parent_calling_included_child__export_correct_diagram():
+    index = MagicMock()
+    parent_cursor = MagicMock()
+    parent_cursor.translation_unit.spelling = 'foo.cpp'
+    parent = Callable('foo', parent_cursor, index)
+    child_cursor = MagicMock()
+    child_cursor.translation_unit.spelling = 'bar.cpp'
+    child = Callable('baz', child_cursor, index)
+    parent.exclude()
+    child.include()
+    parent.referenced_callables_.append(child)
+    diagram = parent.export()
+    expected_diagram = '''@startuml
+
+ -> bar.cpp: baz
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
+def test__callable__export_two_included_child_levels__export_correct_diagram():
+    index = MagicMock()
+    grandparent_cursor = MagicMock()
+    grandparent_cursor.translation_unit.spelling = 'foo.cpp'
+    grandparent = Callable('foo', grandparent_cursor, index)
+    parent_cursor = MagicMock()
+    parent_cursor.translation_unit.spelling = 'bar.cpp'
+    parent = Callable('baz', parent_cursor, index)
+    child_cursor = MagicMock()
+    child_cursor.translation_unit.spelling = 'bar.cpp'
+    child = Callable('bar', child_cursor, index)
+    grandparent.include()
+    parent.include()
+    child.include()
+    grandparent.referenced_callables_.append(parent)
+    parent.referenced_callables_.append(child)
+    diagram = grandparent.export()
+    expected_diagram = '''@startuml
+
+foo.cpp -> bar.cpp: baz
+bar.cpp -> bar.cpp: bar
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
+# TODO(KNR): simplify diagram tests by factoring out common code
+
+
+def test__callable__export_grandparent_and_child_but_not_parent__export_correct_diagram():
+    index = MagicMock()
+    grandparent_cursor = MagicMock()
+    grandparent_cursor.translation_unit.spelling = 'foo.cpp'
+    grandparent = Callable('foo', grandparent_cursor, index)
+    parent_cursor = MagicMock()
+    parent_cursor.translation_unit.spelling = 'bar.cpp'
+    parent = Callable('baz', parent_cursor, index)
+    child_cursor = MagicMock()
+    child_cursor.translation_unit.spelling = 'bar.cpp'
+    child = Callable('bar', child_cursor, index)
+    grandparent.include()
+    parent.exclude()
+    child.include()
+    grandparent.referenced_callables_.append(parent)
+    parent.referenced_callables_.append(child)
+    diagram = grandparent.export()
+    expected_diagram = '''@startuml
+
+foo.cpp -> bar.cpp: bar
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
+def test__callable__export_definition_loaded_over_declaration__export_correct_diagram(two_translation_units):
+    index = Index()
+    index.add_compilation_database(two_translation_units)
+    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
+    dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
+    index.load(dep_tu)
+    index.load(cross_tu)
+    parent = index.lookup('c:@F@b#')
+    child = index.lookup('c:@F@a#')
+    parent.include()
+    child.include()
+    diagram = parent.export()
+    expected_diagram = '''@startuml
+
+{} -> {}: void a()
+
+@enduml'''.format(cross_tu, dep_tu)
+
+    assert diagram == expected_diagram

@@ -129,6 +129,7 @@ class Callable(object):
         self.name_ = name
         self.cursor_ = cursor
         self.index_ = index
+        self.included_ = False
         if initialize:
             self._initialize_referenced_callables()
 
@@ -138,6 +139,31 @@ class Callable(object):
 
     def get_usr(self):
         return self.cursor_.get_usr()
+
+    def get_translation_unit(self):
+        return self.cursor_.translation_unit.spelling
+
+    def include(self):
+        self.included_ = True
+
+    def exclude(self):
+        self.included_ = False
+
+    def is_included(self):
+        return self.included_
+
+    def export(self):
+        sender = self.get_translation_unit() if self.is_included() else ''
+        return '@startuml\n\n{}\n@enduml'.format(self.export_relations_(sender))
+
+    def export_relations_(self, parent_sender):
+        diagram = ''
+        for callable in self.referenced_callables_:
+            sender = self.get_translation_unit() if self.is_included() else parent_sender
+            if callable.is_included():
+                diagram += '{} -> {}: {}\n'.format(sender, callable.get_translation_unit(), callable.get_name())
+            diagram += callable.export_relations_(sender)
+        return diagram
 
     def is_definition(self):
         return self.cursor_.is_definition()

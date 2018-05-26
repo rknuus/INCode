@@ -174,10 +174,9 @@ class TreeModel(QAbstractItemModel):
 
         parent_item = self.getItem(parent)
         child_item = parent_item.child(row)
-        if child_item:
-            return self.createIndex(row, column, child_item)
-        else:
+        if not child_item:
             return QModelIndex()
+        return self.createIndex(row, column, child_item)
 
     def insertColumns(self, position, columns, parent=QModelIndex()):
         self.beginInsertColumns(parent, position, position + columns - 1)

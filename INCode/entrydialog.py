@@ -23,6 +23,8 @@ class EntryDialog(QDialog, Ui_EntryDialog):
 
         self.setupUi(self)
 
+        # TODO(KNR): prevent editing the entry file and entry point lists
+
         self.entry_files_ = QStandardItemModel(self.entry_file_list_)
         self.entry_points_ = QStandardItemModel(self.entry_point_list_)
         self.browse_compilation_database_button_.clicked.connect(self.onBrowse)

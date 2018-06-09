@@ -34,7 +34,7 @@ setup(
         'pytest-runner'
     ],
     tests_require=[
-        'mock', 'pytest'
+        'pytest', 'pytest-mock'
     ],
     extras_require={
         'dev': ['pyqt5-tools']

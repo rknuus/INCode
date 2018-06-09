@@ -28,6 +28,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         self.entry_files_ = QStandardItemModel(self.entry_file_list_)
         self.entry_points_ = QStandardItemModel(self.entry_point_list_)
         self.browse_compilation_database_button_.clicked.connect(self.onBrowse)
+        self.index_ = Index()
 
     def onBrowse(self):
         path = QFileDialog.getOpenFileName(self, 'Open compilation database', '', '*.json')
@@ -43,9 +44,12 @@ class EntryDialog(QDialog, Ui_EntryDialog):
                 self.entry_files_.appendRow(item)
             self.entry_file_list_.setModel(self.entry_files_)
             self.entry_file_selection_ = self.entry_file_list_.selectionModel()
+            # TODO(KNR): if possible do connection in constructor
             self.entry_file_selection_.currentChanged.connect(self.onSelectEntryFile)
 
     def onSelectEntryFile(self, current, previous):
+        if not current:
+            return
         entry_file_path = self.entry_files_.item(current.row(), 0).text()
         entry_file = self.index_.load(entry_file_path)
         self.entry_points_.clear()
@@ -62,5 +66,5 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         if current and len(current) > 0:
             entry_point = self.entry_points_.item(current[0].row(), 0)
             self.hide()
-            self.window = DiagramConfiguration(self.index_, entry_point)
-            self.window.show()
+            self.window_ = DiagramConfiguration(self.index_, entry_point)
+            self.window_.show()

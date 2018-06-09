@@ -23,15 +23,10 @@ def gen_search(pattern_text, files):
                 yield filename
                 break
 
-
-def append_or_update(callable, list):
-    # intentionally not performance-optimized
-    for i, c in enumerate(list):
-        if c.get_usr() == callable.get_usr():
-            list[i] = callable
-            break
-    else:
-        list.append(callable)
+# def append_or_update(callable, callable_usrs):
+#     # intentionally not performance-optimized
+#     if callable.get_usr() not in callable_usrs:
+#         callable_usrs.append(callable.get_usr())
 
 
 class Index(object):
@@ -84,12 +79,17 @@ class Index(object):
 
     def register(self, callable):
         # don't replace with new callable if the old one already is a definition
-        if not self.is_interesting(callable):
+        if not self.is_interesting(callable.cursor_):
             return
         self.callable_table_[callable.get_usr()] = callable
 
-    def is_interesting(self, callable):
-        return (callable.get_usr() not in self.callable_table_ or callable.is_definition())
+    def lookup(self, usr):
+        if usr not in self.callable_table_:
+            return None
+        return self.callable_table_[usr]
+
+    def is_interesting(self, cursor):
+        return (cursor.get_usr() not in self.callable_table_ or cursor.is_definition())
 
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):
@@ -109,15 +109,17 @@ class File(object):
             raise ValueError('Cannot parse file {}'.format(file))
 
     def get_callables(self):
-        return self.callables_
+        return [self.index_.lookup(usr) for usr in self.callable_usrs_]
+        # return self.callables_
 
     def _initialize_callables(self):
-        self.callables_ = []
+        self.callable_usrs_ = []
         for cursor in self.tu_.cursor.walk_preorder():
             if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
-                callable = Callable(_get_function_signature(cursor), cursor, self.index_)
-                if self.index_.is_interesting(callable):
-                    append_or_update(callable, self.callables_)
+                if self.index_.is_interesting(cursor):
+                    callable = Callable(_get_function_signature(cursor), cursor, self.index_)
+                    assert callable.get_usr() not in self.callable_usrs_
+                    self.callable_usrs_.append(callable.get_usr())
                     self.index_.register(callable)
 
 
@@ -158,7 +160,8 @@ class Callable(object):
 
     def export_relations_(self, parent_sender):
         diagram = ''
-        for callable in self.referenced_callables_:
+        for usr in self.referenced_usrs_:
+            callable = self.index_.lookup(usr)
             sender = self.get_translation_unit() if self.is_included() else parent_sender
             if callable.is_included():
                 diagram += '{} -> {}: {}\n'.format(sender, callable.get_translation_unit(), callable.get_name())
@@ -169,18 +172,16 @@ class Callable(object):
         return self.cursor_.is_definition()
 
     def get_referenced_callables(self):
-        return self.referenced_callables_
+        return [self.index_.lookup(usr) for usr in self.referenced_usrs_]
 
     def _initialize_referenced_callables(self):
-        self.referenced_callables_ = []
+        self.referenced_usrs_ = []
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
-                definition = cursor.referenced
-                callable = Callable(_get_function_signature(definition), definition, self.index_, False)
-                if self.index_.is_interesting(callable):
-                    append_or_update(callable, self.referenced_callables_)
+                if self.index_.is_interesting(cursor):
+                    definition = cursor.referenced
+                    callable = Callable(_get_function_signature(definition), definition, self.index_, False)
+                    assert callable.get_usr() not in self.referenced_usrs_
+                    self.referenced_usrs_.append(callable.get_usr())
                     callable._initialize_referenced_callables()
                     self.index_.register(callable)
-                else:
-                    # TODO(KNR): provide proper method to get the original callable
-                    self.referenced_callables_.append(self.index_.callable_table_[callable.get_usr()])

@@ -175,6 +175,8 @@ def test__callable__get_referenced_callables_of_another_file__returns_that_funct
     index = Index()
     index.add_compilation_database(two_translation_units)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
+    from pdb import set_trace
+    set_trace()
     file = index.load(cross_tu)
     callables = file.get_callables()
     callable = callables[1]
@@ -340,7 +342,7 @@ def test__callable__export_included_parent_calling_included_child__export_correc
     child = Callable('baz', child_cursor, index)
     parent.include()
     child.include()
-    parent.referenced_callables_.append(child)
+    parent.referenced_usrs_.append(child.get_usr())
     diagram = parent.export()
     expected_diagram = '''@startuml
 
@@ -361,7 +363,7 @@ def test__callable__export_included_parent_calling_excluded_child__export_correc
     child = Callable('baz', child_cursor, index)
     parent.include()
     child.exclude()
-    parent.referenced_callables_.append(child)
+    parent.referenced_usrs_.append(child.get_usr())
     diagram = parent.export()
     expected_diagram = '''@startuml
 
@@ -381,7 +383,7 @@ def test__callable__export_excluded_parent_calling_included_child__export_correc
     child = Callable('baz', child_cursor, index)
     parent.exclude()
     child.include()
-    parent.referenced_callables_.append(child)
+    parent.referenced_usrs_.append(child.get_usr())
     diagram = parent.export()
     expected_diagram = '''@startuml
 
@@ -406,8 +408,8 @@ def test__callable__export_two_included_child_levels__export_correct_diagram():
     grandparent.include()
     parent.include()
     child.include()
-    grandparent.referenced_callables_.append(parent)
-    parent.referenced_callables_.append(child)
+    grandparent.referenced_usrs_.append(parent.get_usr())
+    parent.referenced_usrs_.append(child.get_usr())
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 
@@ -417,7 +419,6 @@ bar.cpp -> bar.cpp: bar
 @enduml'''
 
     assert diagram == expected_diagram
-
 
 # TODO(KNR): simplify diagram tests by factoring out common code
 
@@ -436,8 +437,8 @@ def test__callable__export_grandparent_and_child_but_not_parent__export_correct_
     grandparent.include()
     parent.exclude()
     child.include()
-    grandparent.referenced_callables_.append(parent)
-    parent.referenced_callables_.append(child)
+    grandparent.referenced_usrs_.append(parent.get_usr())
+    parent.referenced_usrs_.append(child.get_usr())
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 

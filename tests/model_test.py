@@ -90,138 +90,96 @@ def test__index__add_compilation_database__can_get_list_of_translation_units(dir
     assert 'bar.cpp' in files
 
 
-def test__index__get_callables_for_empty_file__returns_empty_list(directory):
-    file = os.path.join(directory, 'empty.cpp')
-    generate_project(directory, {file: '\n'})
+def build_index_with_file(directory, file_name, file_content):
+    file_path = os.path.join(directory, 'empty.cpp')
+    generate_project(directory, {file_path: file_content})
     index = Index()
     index.add_compilation_database(directory)
-    file = index.load(file)
+    file = index.load(file_path)
+    return index, file
+
+
+def test__file__get_callables_for_empty_file__returns_empty_list(directory):
+    _, file = build_index_with_file(directory, 'empty.cpp', '\n')
     assert list(file.get_callables()) == []
 
 
-def test__index__get_callables_for_file_with_one_function__returns_that_function(directory):
-    file = os.path.join(directory, 'one_function.cpp')
-    generate_project(directory, {file: 'void a() {}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
+def test__file__get_callables_for_file_with_one_function__returns_that_function(directory):
+    _, file = build_index_with_file(directory, 'one_function.cpp', 'void a() {}\n')
     callables = file.get_callables()
-    assert len(callables) == 1
-    assert callables[0].get_name() == 'void a()'
+    assert [callable.get_name() for callable in callables] == ['void a()']
 
 
 def test__file__get_callables_for_file_with_two_functions__returns_both_functions(directory):
-    file = os.path.join(directory, 'two_functions.cpp')
-    generate_project(directory, {file: 'void a() {}\nvoid b(const int i) {}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
+    _, file = build_index_with_file(directory, 'two_functions.cpp', 'void a() {}\nvoid b(const int i) {}\n')
     callables = file.get_callables()
-    assert len(callables) == 2
-    assert callables[0].get_name() == 'void a()'
-    assert callables[1].get_name() == 'void b(const int)'
+    assert [callable.get_name() for callable in callables] == ['void a()', 'void b(const int)']
 
 
 def test__file__get_callables_for_declared_and_then_defined_function__returns_only_definition(directory):
-    file = os.path.join(directory, 'declare_and_then_define_function.cpp')
-    generate_project(directory, {file: 'void a();\nvoid a() {}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
+    _, file = build_index_with_file(directory, 'declare_and_then_define_function.cpp', 'void a();\nvoid a() {}\n')
     callables = file.get_callables()
-    assert len(callables) == 1
-    assert callables[0].get_name() == 'void a()'
-    assert callables[0].is_definition()
+    assert [callable.get_name() for callable in callables] == ['void a()']
+    assert [callable.is_definition() for callable in callables] == [True]
 
 
 def test__callable__get_referenced_callables_for_empty_function__returns_empty_list(directory):
-    file = os.path.join(directory, 'non_referencing_function.cpp')
-    generate_project(directory, {file: 'void a() {}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
+    _, file = build_index_with_file(directory, 'non_referencing_function.cpp', 'void a() {}\n')
     callable = file.get_callables()[0]
     assert callable.get_referenced_callables() == []
 
 
 def test__callable__get_referenced_callables_for_function_calling_another_one__returns_that_function(directory):
-    file = os.path.join(directory, 'referencing_function.cpp')
-    generate_project(directory, {file: 'void a() {}\nvoid b() {\na();\n}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
-    callables = file.get_callables()
-    callable = callables[1]
+    _, file = build_index_with_file(directory, 'referencing_function.cpp', 'void a() {}\nvoid b() {\na();\n}\n')
+    callable = file.get_callables()[1]
     referenced_callables = callable.get_referenced_callables()
-    assert len(referenced_callables) == 1
-    assert referenced_callables[0].get_name() == 'void a()'
+    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()']
 
 
 def test__callable__get_referenced_callables_for_function_calling_two_others__returns_both_function(directory):
-    file = os.path.join(directory, 'double_referencing_function.cpp')
-    generate_project(directory, {file: 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
-    callables = file.get_callables()
-    callable = callables[2]
+    _, file = build_index_with_file(directory, 'double_referencing_function.cpp',
+                                    'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')
+    callable = file.get_callables()[2]
     referenced_callables = callable.get_referenced_callables()
-    assert len(referenced_callables) == 2
-    assert referenced_callables[0].get_name() == 'void a()'
-    assert referenced_callables[1].get_name() == 'void b()'
+    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()', 'void b()']
 
 
 def test__callable__get_referenced_callables_of_another_file__returns_that_function(two_translation_units):
     index = Index()
     index.add_compilation_database(two_translation_units)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
-    from pdb import set_trace
-    set_trace()
     file = index.load(cross_tu)
-    callables = file.get_callables()
-    callable = callables[1]
+    callable = file.get_callables()[1]
     referenced_callables = callable.get_referenced_callables()
-    assert len(referenced_callables) == 1
-    assert referenced_callables[0].get_name() == 'void a()'
+    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()']
 
 
 def test__callable__get_referenced_callables_for_referenced_function_in_same_file__returns_that_definition(directory):
-    file = os.path.join(directory, 'identify_local_function.cpp')
-    generate_project(directory, {file: 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
-    callables = file.get_callables()
-    callable = callables[2]
+    _, file = build_index_with_file(directory, 'identify_local_function.cpp',
+                                    'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')
+    callable = file.get_callables()[2]
     referenced_callables = callable.get_referenced_callables()
-    assert len(referenced_callables) == 2
-    assert referenced_callables[0].get_usr() == 'c:@F@a#'
-    assert referenced_callables[1].get_usr() == 'c:@F@b#'
+    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()', 'void b()']
 
 
 def test__callable__get_referenced_callables_for_recursive_function__returns_only_definition(directory):
-    file = os.path.join(directory, 'recursive_function.cpp')
-    generate_project(directory, {file: 'void a();\nvoid a() {\n  a();\n}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    file = index.load(file)
-    callables = file.get_callables()
-    callable = callables[0]
+    _, file = build_index_with_file(directory, 'recursive_function.cpp', 'void a();\nvoid a() {\n  a();\n}\n')
+    callable = file.get_callables()[0]
     referenced_callables = callable.get_referenced_callables()
-    nested_referenced_callables = referenced_callables[0].get_referenced_callables()
-    assert len(referenced_callables) == 1
-    assert referenced_callables[0].get_name() == 'void a()'
+    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()']
+
+
+def test__index__lookup_unknown_function__function_is_not_in_index():
+    index = Index()
+    assert index.lookup('foo') is None
 
 
 def test__index__load_translation_unit__registers_callables_in_index(directory):
-    tu = os.path.join(directory, 'identify_local_function.cpp')
-    generate_project(directory, {tu: 'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    index.load(tu)
-    assert index.callable_table_['c:@F@a#'].cursor_.location.file.name == tu
-    assert index.callable_table_['c:@F@b#'].cursor_.location.file.name == tu
-    assert index.callable_table_['c:@F@c#'].cursor_.location.file.name == tu
+    index, _ = build_index_with_file(directory, 'identify_local_function.cpp',
+                                     'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')
+    assert index.lookup('c:@F@a#') is not None
+    assert index.lookup('c:@F@b#') is not None
+    assert index.lookup('c:@F@c#') is not None
 
 
 def test__index__load_tu_referencing_function_in_another_file__registers_callable_in_header(two_translation_units):
@@ -251,25 +209,18 @@ def test__index__load_declaration_first_then_load_definition__get_function(local
     index.add_compilation_database(local_and_xref_dep)
     cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
     index.load(cross_tu)
-    with pytest.raises(KeyError):
-        index.callable_table_['c:@F@c#']
+    assert index.lookup('c:@F@c#') is None
     dep_tu = os.path.join(local_and_xref_dep, 'dependency.cpp')
     index.load(dep_tu)
-    assert index.callable_table_['c:@F@c#'].cursor_.location.file.name == dep_tu
-
-
-def test__index__lookup_unknown_function__function_is_not_in_index():
-    index = Index()
-    with pytest.raises(KeyError):
-        index.callable_table_['foo']
+    assert index.lookup('c:@F@c#') is not None
 
 
 def test__index__register_function__function_is_in_index():
     cursor_mock = MagicMock()
-    cursor_mock.get_usr.return_value = 'foo'
+    cursor_mock.get_id.return_value = 'foo'
     index = Index()
     index.register(cursor_mock)
-    assert index.callable_table_['foo']
+    assert index.lookup('foo') is not None
 
 
 def test__index__load_definition_for_function_defined_in_other_file__returns_definition(two_translation_units):
@@ -314,35 +265,42 @@ def test__scenario__select_entry_location_and_follow_references__data_model_is_c
     assert len(no_more_xref) == 0
 
 
+def build_callable():
+    return Callable('foo', MagicMock(), MagicMock())
+
+
 def test__callable__check_whether_included__default_is_excluded():
-    callable = Callable('foo', MagicMock(), MagicMock())
+    callable = build_callable()
     assert not callable.is_included()
 
 
 def test__callable__include_and_check_whether_included__return_included():
-    callable = Callable('foo', MagicMock(), MagicMock())
+    callable = build_callable()
     callable.include()
     assert callable.is_included()
 
 
 def test__callable__include_then_exclude_and_check_whether_included__return_included():
-    callable = Callable('foo', MagicMock(), MagicMock())
+    callable = build_callable()
     callable.include()
     callable.exclude()
     assert not callable.is_included()
 
 
+def build_cursor(file):
+    cursor = MagicMock()
+    cursor.translation_unit.spelling = file
+    return cursor
+
+
 def test__callable__export_included_parent_calling_included_child__export_correct_diagram():
     index = MagicMock()
-    parent_cursor = MagicMock()
-    parent_cursor.translation_unit.spelling = 'foo.cpp'
-    parent = Callable('foo', parent_cursor, index)
-    child_cursor = MagicMock()
-    child_cursor.translation_unit.spelling = 'bar.cpp'
-    child = Callable('baz', child_cursor, index)
+    parent = Callable('foo', build_cursor('foo.cpp'), index)
+    child = Callable('baz', build_cursor('bar.cpp'), index)
+    parent.referenced_usrs_.append(child.get_id())
+    index.lookup.return_value = child
     parent.include()
     child.include()
-    parent.referenced_usrs_.append(child.get_usr())
     diagram = parent.export()
     expected_diagram = '''@startuml
 
@@ -355,15 +313,12 @@ foo.cpp -> bar.cpp: baz
 
 def test__callable__export_included_parent_calling_excluded_child__export_correct_diagram():
     index = MagicMock()
-    parent_cursor = MagicMock()
-    parent_cursor.translation_unit.spelling = 'foo.cpp'
-    parent = Callable('foo', parent_cursor, index)
-    child_cursor = MagicMock()
-    child_cursor.translation_unit.spelling = 'bar.cpp'
-    child = Callable('baz', child_cursor, index)
+    parent = Callable('foo', build_cursor('foo.cpp'), index)
+    child = Callable('baz', build_cursor('bar.cpp'), index)
+    parent.referenced_usrs_.append(child.get_id())
+    index.lookup.return_value = child
     parent.include()
     child.exclude()
-    parent.referenced_usrs_.append(child.get_usr())
     diagram = parent.export()
     expected_diagram = '''@startuml
 
@@ -375,15 +330,12 @@ def test__callable__export_included_parent_calling_excluded_child__export_correc
 
 def test__callable__export_excluded_parent_calling_included_child__export_correct_diagram():
     index = MagicMock()
-    parent_cursor = MagicMock()
-    parent_cursor.translation_unit.spelling = 'foo.cpp'
-    parent = Callable('foo', parent_cursor, index)
-    child_cursor = MagicMock()
-    child_cursor.translation_unit.spelling = 'bar.cpp'
-    child = Callable('baz', child_cursor, index)
+    parent = Callable('foo', build_cursor('foo.cpp'), index)
+    child = Callable('baz', build_cursor('bar.cpp'), index)
+    parent.referenced_usrs_.append(child.get_id())
+    index.lookup.return_value = child
     parent.exclude()
     child.include()
-    parent.referenced_usrs_.append(child.get_usr())
     diagram = parent.export()
     expected_diagram = '''@startuml
 
@@ -396,53 +348,43 @@ def test__callable__export_excluded_parent_calling_included_child__export_correc
 
 def test__callable__export_two_included_child_levels__export_correct_diagram():
     index = MagicMock()
-    grandparent_cursor = MagicMock()
-    grandparent_cursor.translation_unit.spelling = 'foo.cpp'
-    grandparent = Callable('foo', grandparent_cursor, index)
-    parent_cursor = MagicMock()
-    parent_cursor.translation_unit.spelling = 'bar.cpp'
-    parent = Callable('baz', parent_cursor, index)
-    child_cursor = MagicMock()
-    child_cursor.translation_unit.spelling = 'bar.cpp'
-    child = Callable('bar', child_cursor, index)
+    grandparent = Callable('foo', build_cursor('foo.cpp'), index)
+    parent = Callable('bar', build_cursor('bar.cpp'), index)
+    child = Callable('baz', build_cursor('baz.cpp'), index)
+    grandparent.referenced_usrs_.append(parent.get_id())
+    parent.referenced_usrs_.append(child.get_id())
+    index.lookup.side_effect = [parent, child]
     grandparent.include()
     parent.include()
     child.include()
-    grandparent.referenced_usrs_.append(parent.get_usr())
-    parent.referenced_usrs_.append(child.get_usr())
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> bar.cpp: baz
-bar.cpp -> bar.cpp: bar
+foo.cpp -> bar.cpp: bar
+bar.cpp -> baz.cpp: baz
 
 @enduml'''
 
     assert diagram == expected_diagram
 
-# TODO(KNR): simplify diagram tests by factoring out common code
+# # TODO(KNR): simplify diagram tests by factoring out common code
 
 
 def test__callable__export_grandparent_and_child_but_not_parent__export_correct_diagram():
     index = MagicMock()
-    grandparent_cursor = MagicMock()
-    grandparent_cursor.translation_unit.spelling = 'foo.cpp'
-    grandparent = Callable('foo', grandparent_cursor, index)
-    parent_cursor = MagicMock()
-    parent_cursor.translation_unit.spelling = 'bar.cpp'
-    parent = Callable('baz', parent_cursor, index)
-    child_cursor = MagicMock()
-    child_cursor.translation_unit.spelling = 'bar.cpp'
-    child = Callable('bar', child_cursor, index)
+    grandparent = Callable('foo', build_cursor('foo.cpp'), index)
+    parent = Callable('bar', build_cursor('bar.cpp'), index)
+    child = Callable('baz', build_cursor('baz.cpp'), index)
+    grandparent.referenced_usrs_.append(parent.get_id())
+    parent.referenced_usrs_.append(child.get_id())
+    index.lookup.side_effect = [parent, child]
     grandparent.include()
     parent.exclude()
     child.include()
-    grandparent.referenced_usrs_.append(parent.get_usr())
-    parent.referenced_usrs_.append(child.get_usr())
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> bar.cpp: bar
+foo.cpp -> baz.cpp: baz
 
 @enduml'''
 

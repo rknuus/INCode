@@ -23,11 +23,6 @@ def gen_search(pattern_text, files):
                 yield filename
                 break
 
-# def append_or_update(callable, callable_usrs):
-#     # intentionally not performance-optimized
-#     if callable.get_usr() not in callable_usrs:
-#         callable_usrs.append(callable.get_usr())
-
 
 class Index(object):
     def __init__(self):
@@ -70,21 +65,20 @@ class Index(object):
         self.file_table_[file] = f
         return f
 
-    # TODO(KNR): is kwargs still required/useful?
-    def load_definition(self, declaration, **kwargs):
+    def load_definition(self, declaration):
         translation_units = gen_open(self.get_files())
         candidates = gen_search(declaration.get_name(), translation_units)
         for candidate in candidates:
-            self.load(candidate, **kwargs)
+            self.load(candidate)
         if declaration.is_included():
-            self.callable_table_[declaration.get_usr()].include()
-        return self.callable_table_[declaration.get_usr()]
+            self.callable_table_[declaration.get_id()].include()
+        return self.callable_table_[declaration.get_id()]
 
     def register(self, callable):
         # don't replace with new callable if the old one already is a definition
         if not self.is_interesting(callable.cursor_):
             return
-        self.callable_table_[callable.get_usr()] = callable
+        self.callable_table_[callable.get_id()] = callable
 
     def lookup(self, usr):
         if usr not in self.callable_table_:
@@ -121,13 +115,13 @@ class File(object):
             if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
                 if self.index_.is_interesting(cursor):
                     callable = Callable(_get_function_signature(cursor), cursor, self.index_)
-                    if callable.get_usr() not in self.callable_usrs_:
-                        self.callable_usrs_.append(callable.get_usr())
+                    if callable.get_id() not in self.callable_usrs_:
+                        self.callable_usrs_.append(callable.get_id())
                     self.index_.register(callable)
 
 
 class Callable(object):
-    '''Represents a Callable and provides a list of callables used by this callable.'''
+    '''Represents a callable and provides a list of referenced callables.'''
 
     def __init__(self, name, cursor, index, initialize=True):
         super(Callable, self).__init__()
@@ -142,7 +136,7 @@ class Callable(object):
     def get_name(self):
         return self.name_
 
-    def get_usr(self):
+    def get_id(self):
         return self.cursor_.get_usr()
 
     def get_translation_unit(self):
@@ -184,7 +178,7 @@ class Callable(object):
                 if self.index_.is_interesting(cursor):
                     definition = cursor.referenced
                     callable = Callable(_get_function_signature(definition), definition, self.index_, False)
-                    if callable.get_usr() not in self.referenced_usrs_:
-                        self.referenced_usrs_.append(callable.get_usr())
+                    if callable.get_id() not in self.referenced_usrs_:
+                        self.referenced_usrs_.append(callable.get_id())
                     callable._initialize_referenced_callables()
                     self.index_.register(callable)

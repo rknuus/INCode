@@ -16,7 +16,7 @@ class CallableTreeItem(QTreeWidgetItem):
     def __init__(self, callable, index, parent=None):
         super(QTreeWidgetItem, self).__init__(parent)
         self.index_ = index
-        self.callable_id_ = callable.get_usr()
+        self.callable_id_ = callable.get_id()
         # TODO(KNR): get rid of callable member
         self.callable_ = callable
         self.setText(TreeColumns.FIRST_COLUMN, self.callable_.get_name())

@@ -58,6 +58,7 @@ class Index(object):
             #     pass  # TODO(KNR): ??
         return None
 
+    # TODO(KNR): get_files and load don't support looking up an already loaded file
     def load(self, file):
         # TODO(KNR): assumes that the file name is unique
         if file in self.file_table_:
@@ -118,8 +119,8 @@ class File(object):
             if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
                 if self.index_.is_interesting(cursor):
                     callable = Callable(_get_function_signature(cursor), cursor, self.index_)
-                    assert callable.get_usr() not in self.callable_usrs_
-                    self.callable_usrs_.append(callable.get_usr())
+                    if callable.get_usr() not in self.callable_usrs_:
+                        self.callable_usrs_.append(callable.get_usr())
                     self.index_.register(callable)
 
 
@@ -181,7 +182,7 @@ class Callable(object):
                 if self.index_.is_interesting(cursor):
                     definition = cursor.referenced
                     callable = Callable(_get_function_signature(definition), definition, self.index_, False)
-                    assert callable.get_usr() not in self.referenced_usrs_
-                    self.referenced_usrs_.append(callable.get_usr())
+                    if callable.get_usr() not in self.referenced_usrs_:
+                        self.referenced_usrs_.append(callable.get_usr())
                     callable._initialize_referenced_callables()
                     self.index_.register(callable)

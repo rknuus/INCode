@@ -71,12 +71,14 @@ class Index(object):
         return f
 
     # TODO(KNR): is kwargs still required/useful?
-    def load_definition(self, declaration_cursor, **kwargs):
+    def load_definition(self, declaration, **kwargs):
         translation_units = gen_open(self.get_files())
-        candidates = gen_search(declaration_cursor.get_name(), translation_units)
+        candidates = gen_search(declaration.get_name(), translation_units)
         for candidate in candidates:
             self.load(candidate, **kwargs)
-        return self.callable_table_[declaration_cursor.get_usr()]
+        if declaration.is_included():
+            self.callable_table_[declaration.get_usr()].include()
+        return self.callable_table_[declaration.get_usr()]
 
     def register(self, callable):
         # don't replace with new callable if the old one already is a definition

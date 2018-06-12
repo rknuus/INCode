@@ -13,8 +13,11 @@ class TreeColumns(IntEnum):
 
 
 class CallableTreeItem(QTreeWidgetItem):
-    def __init__(self, callable, parent=None):
+    def __init__(self, callable, index, parent=None):
         super(QTreeWidgetItem, self).__init__(parent)
+        self.index_ = index
+        self.callable_id_ = callable.get_usr()
+        # TODO(KNR): get rid of callable member
         self.callable_ = callable
         self.setText(TreeColumns.FIRST_COLUMN, self.callable_.get_name())
         self.setFlags(self.flags() | Qt.ItemIsUserCheckable)
@@ -36,15 +39,13 @@ class CallableTreeItem(QTreeWidgetItem):
         return Qt.Unchecked
 
     def update_check_state_(self, state):
+        callable = self.index_.lookup(self.callable_id_)
         if state == Qt.Checked:
-            print('include callable ', self.callable_.get_name())
-            self.callable_.include()
+            print('include callable ', callable.get_name())
+            callable.include()
         else:
-            print('exclude callable ', self.callable_.get_name())
-            self.callable_.exclude()
-
-# class CallableTreeWidget(QTreeWidget):
-#     pass
+            print('exclude callable ', callable.get_name())
+            callable.exclude()
 
 
 class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
@@ -54,18 +55,15 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         entry_point = entry_point_item.get_callable()
 
         self.setupUi(self)
-        # tree = CallableTreeWidget(self.tree_.parent())
-        # tree.size = self.tree_.size
-        # self.tree_ = tree
 
         # TODO(KNR): known issue: cannot handle recursion...
         self.tree_.setColumnCount(TreeColumns.COLUMN_COUNT)
         self.tree_.header().hide()
         # TODO(KNR): to store the root item as member of this class is a hack, the tree should somehow provide
         # this information
-        self.entry_point_item_ = CallableTreeItem(entry_point, self.tree_)
+        self.entry_point_item_ = CallableTreeItem(entry_point, self.index_, self.tree_)
         for child in entry_point.get_referenced_callables():
-            CallableTreeItem(child, self.entry_point_item_)
+            CallableTreeItem(child, self.index_, self.entry_point_item_)
         self.tree_.expandAll()
         for column in range(self.tree_.columnCount()):
             self.tree_.resizeColumnToContents(column)
@@ -93,7 +91,10 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
                 return
 
         for child in callable.get_referenced_callables():
-            CallableTreeItem(child, current_item)
+            CallableTreeItem(child, self.index_, current_item)
+
+        # TODO(KNR): update tree as checkboxes no longer reflect the truth for callables with definitions loaded
+        # over declarations
 
     def export(self):
         # TODO(KNR): entry_point_item_ does not reflect updates when loading definitions later on

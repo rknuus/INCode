@@ -27,6 +27,9 @@ class CallableTreeItem(QTreeWidgetItem):
     def get_callable(self):
         return self.callable_
 
+    def update_callable(self, callable):
+        self.callable_ = callable
+
     def setData(self, column, role, value):
         if column == TreeColumns.FIRST_COLUMN and role == Qt.CheckStateRole:
             self.update_check_state_(value)
@@ -85,12 +88,16 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         if not current_item:
             return
         callable = current_item.get_callable()
+        if current_item.childCount() > 0:
+            return
         if not callable.is_definition():
             callable = self.index_.load_definition(callable)
             if not callable.is_definition():
                 return
+            current_item.update_callable(callable)
 
         for child in callable.get_referenced_callables():
+            child._initialize_referenced_callables()
             CallableTreeItem(child, self.index_, current_item)
 
         # TODO(KNR): update tree as checkboxes no longer reflect the truth for callables with definitions loaded

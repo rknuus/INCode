@@ -25,6 +25,8 @@ def gen_search(pattern_text, files):
 
 
 class Index(object):
+    '''Represents the index of all callables and processes the compilation database.'''
+
     def __init__(self):
         super(Index, self).__init__()
         self.index_ = cindex.Index.create()
@@ -53,7 +55,6 @@ class Index(object):
             #     pass  # TODO(KNR): ??
         return None
 
-    # TODO(KNR): get_files and load don't support looking up an already loaded file
     def load(self, file):
         # TODO(KNR): assumes that the file name is unique
         if file in self.file_table_:
@@ -129,6 +130,7 @@ class Callable(object):
         self.cursor_ = cursor
         self.index_ = index
         self.included_ = False
+        self.referenced_usrs_ = []
         if initialize:
             self._initialize_referenced_callables()
 
@@ -172,7 +174,6 @@ class Callable(object):
         return [self.index_.lookup(usr) for usr in self.referenced_usrs_]
 
     def _initialize_referenced_callables(self):
-        self.referenced_usrs_ = []
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
                 if self.index_.is_interesting(cursor):
@@ -180,5 +181,4 @@ class Callable(object):
                     callable = Callable(_get_function_signature(definition), definition, self.index_, False)
                     if callable.get_id() not in self.referenced_usrs_:
                         self.referenced_usrs_.append(callable.get_id())
-                    callable._initialize_referenced_callables()
                     self.index_.register(callable)

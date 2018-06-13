@@ -32,8 +32,10 @@ class EntryDialog(QDialog, Ui_EntryDialog):
 
     def onBrowse(self):
         path = QFileDialog.getOpenFileName(self, 'Open compilation database', '', '*.json')
-        if path:
+        if path and len(path) > 0:
             path = path[0]
+            if not path:
+                return
             self.compilation_database_path_.setText(path)
             self.index_ = Index()
             self.index_.add_compilation_database(os.path.dirname(path))

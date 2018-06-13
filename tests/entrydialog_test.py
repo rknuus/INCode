@@ -45,6 +45,12 @@ def test_dialog_onBrowse__updates_entry_file(mock, uut):
     assert uut.compilation_database_path_.text() == COMPILATION_DATABASE_FAKE_PATH
 
 
+def test_dialog_onBrowse__doesnt_crash_when_path_is_empty(mock, uut):
+    setup_open_file_mock(mock, file_path='')
+    uut.onBrowse()
+    assert uut.compilation_database_path_.text() == ''
+
+
 def test_dialog_onBrowse_once__populates_entry_files(mock, setup_open_file_mock, uut):
     expected_entry_files = ['foo.cpp', 'bar.cpp']
     mock.patch.object(Index, 'get_files', return_value=expected_entry_files)

@@ -2,10 +2,10 @@
 
 try:
     from INCode import entrydialog
-    from INCode.models import Index
+    from INCode.models import CompilationDatabases, Index
 except:
     import entrydialog
-    from models import Index
+    from models import CompilationDatabases, Index
 from PyQt5.QtGui import QStandardItem
 from PyQt5.QtWidgets import QApplication, QFileDialog
 from unittest.mock import MagicMock
@@ -17,17 +17,13 @@ APP = QApplication(sys.argv)
 
 
 @pytest.fixture
-def uut():
-    return entrydialog.EntryDialog()
-
-
-@pytest.fixture
 def setup_open_file_mock(mock, file_path=COMPILATION_DATABASE_FAKE_PATH):
     mock.patch.object(QFileDialog, 'getOpenFileName', return_value=(file_path, '*.json'))
-    mock.patch.object(Index, 'add_compilation_database')
+    mock.patch.object(CompilationDatabases, 'add_compilation_database')
 
 
-def test_dialog_initially_all_fields_empty(uut):
+def test_dialog_initially_all_fields_empty():
+    uut = entrydialog.EntryDialog()
     assert not uut.compilation_database_path_.text()
     assert uut.entry_files_.rowCount() == 0
     assert uut.entry_points_.rowCount() == 0
@@ -39,32 +35,36 @@ def get_entry_files(uut, expected_files):
     return actual_entry_files
 
 
-def test_dialog_onBrowse__updates_entry_file(mock, uut):
+def test_dialog_onBrowse__updates_entry_file(mock):
     setup_open_file_mock(mock, file_path=COMPILATION_DATABASE_FAKE_PATH)
+    uut = entrydialog.EntryDialog()
     uut.onBrowse()
     assert uut.compilation_database_path_.text() == COMPILATION_DATABASE_FAKE_PATH
 
 
-def test_dialog_onBrowse__doesnt_crash_when_path_is_empty(mock, uut):
+def test_dialog_onBrowse__doesnt_crash_when_path_is_empty(mock):
     setup_open_file_mock(mock, file_path='')
+    uut = entrydialog.EntryDialog()
     uut.onBrowse()
     assert uut.compilation_database_path_.text() == ''
 
 
-def test_dialog_onBrowse_once__populates_entry_files(mock, setup_open_file_mock, uut):
+def test_dialog_onBrowse_once__populates_entry_files(mock, setup_open_file_mock):
     expected_entry_files = ['foo.cpp', 'bar.cpp']
-    mock.patch.object(Index, 'get_files', return_value=expected_entry_files)
+    mock.patch.object(CompilationDatabases, 'get_files', return_value=expected_entry_files)
+    uut = entrydialog.EntryDialog()
     uut.onBrowse()
     actual_entry_files = get_entry_files(uut, expected_entry_files)
     assert actual_entry_files == expected_entry_files
 
 
-def test_dialog_onBrowse_twice__clears_entry_files_before_populating_again(mock, setup_open_file_mock, uut):
+def test_dialog_onBrowse_twice__clears_entry_files_before_populating_again(mock, setup_open_file_mock):
     expected_entry_files = ['a.cpp']
     initial_entry_files = ['foo.cpp', 'bar.cpp', 'baz.cpp']
-    mock.patch.object(Index, 'get_files', return_value=initial_entry_files)
+    mock.patch.object(CompilationDatabases, 'get_files', return_value=initial_entry_files)
+    uut = entrydialog.EntryDialog()
     uut.onBrowse()
-    mock.patch.object(Index, 'get_files', return_value=expected_entry_files)
+    mock.patch.object(CompilationDatabases, 'get_files', return_value=expected_entry_files)
     uut.onBrowse()
     actual_entry_files = get_entry_files(uut, expected_entry_files)
     assert actual_entry_files == expected_entry_files
@@ -99,17 +99,19 @@ def selected_mock():
     return current
 
 
-def test_dialog_onSelectEntryFile_once__populates_entry_points(mock, selected_mock, uut):
+def test_dialog_onSelectEntryFile_once__populates_entry_points(mock, selected_mock):
     expected_entry_points = ['void a()', 'void b()']
+    uut = entrydialog.EntryDialog()
     setup_entry_files(mock, uut, expected_entry_points)
     uut.onSelectEntryFile(selected_mock, None)
     actual_entry_points = get_entry_points(uut, expected_entry_points)
     assert actual_entry_points == expected_entry_points
 
 
-def test_dialog_onSelectEntryFile_twice__clears_entry_points_before_populating_again(mock, selected_mock, uut):
+def test_dialog_onSelectEntryFile_twice__clears_entry_points_before_populating_again(mock, selected_mock):
     expected_entry_points = ['int b()']
     initial_entry_points = ['void a()', 'void b()', 'void c()']
+    uut = entrydialog.EntryDialog()
     setup_entry_files(mock, uut, initial_entry_points)
     uut.onSelectEntryFile(selected_mock, None)
     setup_entry_files(mock, uut, expected_entry_points)
@@ -118,15 +120,17 @@ def test_dialog_onSelectEntryFile_twice__clears_entry_points_before_populating_a
     assert actual_entry_points == expected_entry_points
 
 
-def test_dialog_onSelectEntryFile_but_nothing_selected__does_not_populate_entry_points(mock, uut):
+def test_dialog_onSelectEntryFile_but_nothing_selected__does_not_populate_entry_points(mock):
+    uut = entrydialog.EntryDialog()
     uut.entry_point_list_ = MagicMock()
     uut.onSelectEntryFile(None, None)
     uut.entry_point_list_.setModel.assert_not_called()
 
 
-def test_dialog_reject__quits_application(monkeypatch, uut):
+def test_dialog_reject__quits_application(monkeypatch):
     exit_calls = []
     monkeypatch.setattr(QApplication, 'quit', lambda _: exit_calls.append(1))
+    uut = entrydialog.EntryDialog()
     uut.reject()
     assert exit_calls == [1]
 

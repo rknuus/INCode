@@ -1,6 +1,6 @@
 # Copyright (C) 2018 R. Knuus
 
-from INCode.models import Callable, File, Index
+from INCode.models import Callable, CompilationDatabases, File, Index
 from unittest.mock import MagicMock
 import os
 import pytest
@@ -81,11 +81,11 @@ def local_and_xref_dep():
         yield directory
 
 
-def test__index__add_compilation_database__can_get_list_of_translation_units(directory):
+def test__compilation_database__add_compilation_database__can_get_list_of_translation_units(directory):
     generate_project(directory, {'foo.cpp': '\n', 'bar.cpp': '\n'})
-    index = Index()
-    index.add_compilation_database(directory)
-    files = index.get_files()
+    db = CompilationDatabases()
+    db.add_compilation_database(directory)
+    files = db.get_files()
     assert 'foo.cpp' in files
     assert 'bar.cpp' in files
 
@@ -93,8 +93,9 @@ def test__index__add_compilation_database__can_get_list_of_translation_units(dir
 def build_index_with_file(directory, file_name, file_content):
     file_path = os.path.join(directory, 'empty.cpp')
     generate_project(directory, {file_path: file_content})
-    index = Index()
-    index.add_compilation_database(directory)
+    db = CompilationDatabases()
+    db.add_compilation_database(directory)
+    index = Index(db)
     file = index.load(file_path)
     return index, file
 
@@ -104,22 +105,26 @@ def test__file__get_callables_for_empty_file__returns_empty_list(directory):
     assert list(file.get_callables()) == []
 
 
+def get_callable_names(callables):
+    return [callable.get_name() for callable in callables]
+
+
 def test__file__get_callables_for_file_with_one_function__returns_that_function(directory):
     _, file = build_index_with_file(directory, 'one_function.cpp', 'void a() {}\n')
     callables = file.get_callables()
-    assert [callable.get_name() for callable in callables] == ['void a()']
+    assert get_callable_names(callables) == ['void a()']
 
 
 def test__file__get_callables_for_file_with_two_functions__returns_both_functions(directory):
     _, file = build_index_with_file(directory, 'two_functions.cpp', 'void a() {}\nvoid b(const int i) {}\n')
     callables = file.get_callables()
-    assert [callable.get_name() for callable in callables] == ['void a()', 'void b(const int)']
+    assert get_callable_names(callables) == ['void a()', 'void b(const int)']
 
 
 def test__file__get_callables_for_declared_and_then_defined_function__returns_only_definition(directory):
     _, file = build_index_with_file(directory, 'declare_and_then_define_function.cpp', 'void a();\nvoid a() {}\n')
     callables = file.get_callables()
-    assert [callable.get_name() for callable in callables] == ['void a()']
+    assert get_callable_names(callables) == ['void a()']
     assert [callable.is_definition() for callable in callables] == [True]
 
 
@@ -133,7 +138,7 @@ def test__callable__get_referenced_callables_for_function_calling_another_one__r
     _, file = build_index_with_file(directory, 'referencing_function.cpp', 'void a() {}\nvoid b() {\na();\n}\n')
     callable = file.get_callables()[1]
     referenced_callables = callable.get_referenced_callables()
-    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()']
+    assert get_callable_names(referenced_callables) == ['void a()']
 
 
 def test__callable__get_referenced_callables_for_function_calling_two_others__returns_both_function(directory):
@@ -141,17 +146,18 @@ def test__callable__get_referenced_callables_for_function_calling_two_others__re
                                     'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')
     callable = file.get_callables()[2]
     referenced_callables = callable.get_referenced_callables()
-    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()', 'void b()']
+    assert get_callable_names(referenced_callables) == ['void a()', 'void b()']
 
 
 def test__callable__get_referenced_callables_of_another_file__returns_that_function(two_translation_units):
-    index = Index()
-    index.add_compilation_database(two_translation_units)
+    db = CompilationDatabases()
+    db.add_compilation_database(two_translation_units)
+    index = Index(db)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     file = index.load(cross_tu)
     callable = file.get_callables()[1]
     referenced_callables = callable.get_referenced_callables()
-    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()']
+    assert get_callable_names(referenced_callables) == ['void a()']
 
 
 def test__callable__get_referenced_callables_for_referenced_function_in_same_file__returns_that_definition(directory):
@@ -159,18 +165,18 @@ def test__callable__get_referenced_callables_for_referenced_function_in_same_fil
                                     'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')
     callable = file.get_callables()[2]
     referenced_callables = callable.get_referenced_callables()
-    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()', 'void b()']
+    assert get_callable_names(referenced_callables) == ['void a()', 'void b()']
 
 
 def test__callable__get_referenced_callables_for_recursive_function__returns_only_definition(directory):
     _, file = build_index_with_file(directory, 'recursive_function.cpp', 'void a();\nvoid a() {\n  a();\n}\n')
     callable = file.get_callables()[0]
     referenced_callables = callable.get_referenced_callables()
-    assert [referenced_callable.get_name() for referenced_callable in referenced_callables] == ['void a()']
+    assert get_callable_names(referenced_callables) == ['void a()']
 
 
 def test__index__lookup_unknown_function__function_is_not_in_index():
-    index = Index()
+    index = Index(None)
     assert index.lookup('foo') is None
 
 
@@ -183,8 +189,9 @@ def test__index__load_translation_unit__registers_callables_in_index(directory):
 
 
 def test__index__load_tu_referencing_function_in_another_file__registers_callable_in_header(two_translation_units):
-    index = Index()
-    index.add_compilation_database(two_translation_units)
+    db = CompilationDatabases()
+    db.add_compilation_database(two_translation_units)
+    index = Index(db)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_header = os.path.join(two_translation_units, 'dependency.h')
     index.load(cross_tu)
@@ -193,8 +200,9 @@ def test__index__load_tu_referencing_function_in_another_file__registers_callabl
 
 
 def test__index__load_tu_referencing_function_in_another_file__registration_not_overwritten(two_translation_units):
-    index = Index()
-    index.add_compilation_database(two_translation_units)
+    db = CompilationDatabases()
+    db.add_compilation_database(two_translation_units)
+    index = Index(db)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
     index.load(dep_tu)
@@ -205,8 +213,9 @@ def test__index__load_tu_referencing_function_in_another_file__registration_not_
 
 
 def test__index__load_declaration_first_then_load_definition__get_function(local_and_xref_dep):
-    index = Index()
-    index.add_compilation_database(local_and_xref_dep)
+    db = CompilationDatabases()
+    db.add_compilation_database(local_and_xref_dep)
+    index = Index(db)
     cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
     index.load(cross_tu)
     assert index.lookup('c:@F@c#') is None
@@ -218,14 +227,15 @@ def test__index__load_declaration_first_then_load_definition__get_function(local
 def test__index__register_function__function_is_in_index():
     cursor_mock = MagicMock()
     cursor_mock.get_id.return_value = 'foo'
-    index = Index()
+    index = Index(None)
     index.register(cursor_mock)
     assert index.lookup('foo') is not None
 
 
 def test__index__load_definition_for_function_defined_in_other_file__returns_definition(two_translation_units):
-    index = Index()
-    index.add_compilation_database(two_translation_units)
+    db = CompilationDatabases()
+    db.add_compilation_database(two_translation_units)
+    index = Index(db)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     index.load(cross_tu)
     declaration = index.callable_table_['c:@F@a#']
@@ -235,14 +245,15 @@ def test__index__load_definition_for_function_defined_in_other_file__returns_def
 
 
 def test__scenario__select_entry_location_and_follow_references__data_model_is_correct(local_and_xref_dep):
-    index = Index()
-    index.add_compilation_database(local_and_xref_dep)
+    db = CompilationDatabases()
+    db.add_compilation_database(local_and_xref_dep)
+    files = db.get_files()
     cross_tu = os.path.join(local_and_xref_dep, 'cross_tu_referencing_function.cpp')
     dep_tu = os.path.join(local_and_xref_dep, 'dependency.cpp')
-    files = index.get_files()
     assert cross_tu in files
     assert dep_tu in files
 
+    index = Index(db)
     entry_file = index.load(cross_tu)
     callables = entry_file.get_callables()
     assert len(callables) == 2
@@ -291,6 +302,30 @@ def build_cursor(file):
     cursor = MagicMock()
     cursor.translation_unit.spelling = file
     return cursor
+
+
+# def build_callable_tree(tree_data)
+#     index = MagicMock()
+#     callables = []
+
+#     for callable_data in tree_data:
+#         callable = Callable(callable_data.function, build_cursor(callable_data.file), index)
+#     # parent = Callable('foo', build_cursor('foo.cpp'), index)
+#     # child = Callable('baz', build_cursor('bar.cpp'), index)
+
+#     tree_data_iterator = iter(tree_data)
+#     next(tree_data_iterator)
+#     index.lookup.side_effect = 
+#     for callable_data in tree_data_iterator:
+
+#     # index.lookup.side_effect = [parent, child]
+
+#     parent.referenced_usrs_.append(child.get_id())
+#     index.lookup.return_value = child
+#     parent.include()
+#     child.include()
+
+#     return index, callables
 
 
 def test__callable__export_included_parent_calling_included_child__export_correct_diagram():
@@ -392,8 +427,9 @@ foo.cpp -> baz.cpp: baz
 
 
 def test__callable__export_definition_loaded_over_declaration__export_correct_diagram(two_translation_units):
-    index = Index()
-    index.add_compilation_database(two_translation_units)
+    compilation_databases = CompilationDatabases()
+    index = Index(compilation_databases)
+    compilation_databases.add_compilation_database(two_translation_units)
     cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
     dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
     index.load(dep_tu)

@@ -9,29 +9,11 @@ def _get_function_signature(cursor):
     return '{} {}'.format(cursor.result_type.spelling, cursor.displayname)
 
 
-def gen_open(files):
-    for file in files:
-        yield open(file)
-
-
-def gen_search(pattern_text, files):
-    pattern = re.compile(pattern_text)
-    for file in files:
-        filename = file.name
-        for line in file:
-            if pattern.search(line):
-                yield filename
-                break
-
-
-class Index(object):
-    '''Represents the index of all callables and processes the compilation database.'''
+class CompilationDatabases(object):
+    '''Represents a compilation database.'''
 
     def __init__(self):
-        super(Index, self).__init__()
-        self.index_ = cindex.Index.create()
-        self.callable_table_ = {}
-        self.file_table_ = {}
+        super(CompilationDatabases, self).__init__()
         self.compilation_databases_ = {}
 
     def add_compilation_database(self, compilation_database_directory):
@@ -55,11 +37,21 @@ class Index(object):
             #     pass  # TODO(KNR): ??
         return None
 
+class Index(object):
+    '''Represents the index of all callables and processes the compilation database.'''
+
+    def __init__(self, compilation_databases):
+        super(Index, self).__init__()
+        self.index_ = cindex.Index.create()
+        self.callable_table_ = {}
+        self.file_table_ = {}
+        self.compilation_databases_ = compilation_databases
+
     def load(self, file):
         # TODO(KNR): assumes that the file name is unique
         if file in self.file_table_:
             return self.file_table_[file]
-        command = self.get_command(file)
+        command = self.compilation_databases_.get_command(file)
         if not command:
             raise ValueError('No compilation command found for {}'.format(file))
         f = File(file, self, command)
@@ -67,8 +59,8 @@ class Index(object):
         return f
 
     def load_definition(self, declaration):
-        translation_units = gen_open(self.get_files())
-        candidates = gen_search(declaration.get_name(), translation_units)
+        translation_units = Index._gen_open(self.compilation_databases_.get_files())
+        candidates = Index._gen_search(declaration.get_name(), translation_units)
         for candidate in candidates:
             self.load(candidate)
         if declaration.is_included():
@@ -93,6 +85,21 @@ class Index(object):
     def get_clang_index(self):
         return self.index_
 
+    @staticmethod
+    def _gen_open(files):
+        for file in files:
+            yield open(file)
+
+    @staticmethod
+    def _gen_search(pattern_text, files):
+        pattern = re.compile(pattern_text)
+        for file in files:
+            filename = file.name
+            for line in file:
+                if pattern.search(line):
+                    yield filename
+                    break
+
 
 class File(object):
     '''Represents a file and provides a list of callables.'''
@@ -100,25 +107,21 @@ class File(object):
     def __init__(self, file, index, command):
         super(File, self).__init__()
         self.index_ = index
+        self.callable_usrs_ = []
         try:
             self.tu_ = self.index_.get_clang_index().parse(None, command)
-            self._initialize_callables()
+            for cursor in self.tu_.cursor.walk_preorder():
+                if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
+                    if self.index_.is_interesting(cursor):
+                        callable = Callable(_get_function_signature(cursor), cursor, self.index_)
+                        if callable.get_id() not in self.callable_usrs_:
+                            self.callable_usrs_.append(callable.get_id())
+                        self.index_.register(callable)
         except TranslationUnitLoadError:
             raise ValueError('Cannot parse file {}'.format(file))
 
     def get_callables(self):
         return [self.index_.lookup(usr) for usr in self.callable_usrs_]
-        # return self.callables_
-
-    def _initialize_callables(self):
-        self.callable_usrs_ = []
-        for cursor in self.tu_.cursor.walk_preorder():
-            if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
-                if self.index_.is_interesting(cursor):
-                    callable = Callable(_get_function_signature(cursor), cursor, self.index_)
-                    if callable.get_id() not in self.callable_usrs_:
-                        self.callable_usrs_.append(callable.get_id())
-                    self.index_.register(callable)
 
 
 class Callable(object):
@@ -132,7 +135,7 @@ class Callable(object):
         self.included_ = False
         self.referenced_usrs_ = []
         if initialize:
-            self._initialize_referenced_callables()
+            self.initialize()
 
     # TODO(KNR): replace by read-only attribute
     def get_name(self):
@@ -173,7 +176,7 @@ class Callable(object):
     def get_referenced_callables(self):
         return [self.index_.lookup(usr) for usr in self.referenced_usrs_]
 
-    def _initialize_referenced_callables(self):
+    def initialize(self):
         for cursor in self.cursor_.walk_preorder():
             if cursor.kind == CursorKind.CALL_EXPR:
                 if self.index_.is_interesting(cursor):

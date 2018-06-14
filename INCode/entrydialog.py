@@ -1,7 +1,7 @@
 # Copyright (C) 2018 R. Knuus
 
 from INCode.diagramconfiguration import DiagramConfiguration
-from INCode.models import Index
+from INCode.models import CompilationDatabases, Index
 from INCode.ui_entrydialog import Ui_EntryDialog
 from PyQt5.QtGui import QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import QApplication, QDialog, QFileDialog
@@ -25,10 +25,14 @@ class EntryDialog(QDialog, Ui_EntryDialog):
 
         # TODO(KNR): prevent editing the entry file and entry point lists
 
+        self.db_ = CompilationDatabases()
+        self.index_ = Index(self.db_)
         self.entry_files_ = QStandardItemModel(self.entry_file_list_)
         self.entry_points_ = QStandardItemModel(self.entry_point_list_)
         self.browse_compilation_database_button_.clicked.connect(self.onBrowse)
-        self.index_ = Index()
+        self.entry_file_list_.setModel(self.entry_files_)
+        self.entry_file_selection_ = self.entry_file_list_.selectionModel()
+        self.entry_file_selection_.currentChanged.connect(self.onSelectEntryFile)
 
     def onBrowse(self):
         path = QFileDialog.getOpenFileName(self, 'Open compilation database', '', '*.json')
@@ -37,17 +41,14 @@ class EntryDialog(QDialog, Ui_EntryDialog):
             if not path:
                 return
             self.compilation_database_path_.setText(path)
-            self.index_ = Index()
-            self.index_.add_compilation_database(os.path.dirname(path))
+            self.db_ = CompilationDatabases()  # to clear any previous compilation database
+            self.db_.add_compilation_database(os.path.dirname(path))
+            self.index_ = Index(self.db_)
             self.entry_points_.clear()
             self.entry_files_.clear()
-            for file in self.index_.get_files():
+            for file in self.db_.get_files():
                 item = QStandardItem(file)
                 self.entry_files_.appendRow(item)
-            self.entry_file_list_.setModel(self.entry_files_)
-            self.entry_file_selection_ = self.entry_file_list_.selectionModel()
-            # TODO(KNR): if possible do connection in constructor
-            self.entry_file_selection_.currentChanged.connect(self.onSelectEntryFile)
 
     def onSelectEntryFile(self, current, previous):
         if not current:

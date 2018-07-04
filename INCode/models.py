@@ -112,12 +112,12 @@ class File(object):
         try:
             self.tu_ = self.index_.get_clang_index().parse(None, command)
             for cursor in self.tu_.cursor.walk_preorder():
-                if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
-                    if self.index_.is_interesting(cursor):
-                        callable = Callable(cursor, self.index_)
-                        if callable.get_id() not in self.callable_usrs_:
-                            self.callable_usrs_.append(callable.get_id())
-                        self.index_.register(callable)
+                if (cursor.location.file is not None and Callable._is_a_callable(cursor) and
+                    self.index_.is_interesting(cursor)):
+                    callable = Callable(cursor, self.index_)
+                    if callable.get_id() not in self.callable_usrs_:
+                        self.callable_usrs_.append(callable.get_id())
+                    self.index_.register(callable)
         except TranslationUnitLoadError:
             raise ValueError('Cannot parse file {}'.format(file))
 
@@ -179,15 +179,22 @@ class Callable(object):
 
     def initialize(self):
         for cursor in self.cursor_.walk_preorder():
-            if cursor.kind == CursorKind.CALL_EXPR:
-                if self.index_.is_interesting(cursor):
-                    definition = cursor.referenced
-                    callable = Callable(definition, self.index_, False)
-                    if callable.get_id() not in self.referenced_usrs_:
-                        self.referenced_usrs_.append(callable.get_id())
-                    self.index_.register(callable)
+            if Callable._is_a_call(cursor) and self.index_.is_interesting(cursor):
+                definition = cursor.referenced
+                callable = Callable(definition, self.index_, False)
+                if callable.get_id() not in self.referenced_usrs_:
+                    self.referenced_usrs_.append(callable.get_id())
+                self.index_.register(callable)
+
+    @staticmethod
+    def _is_a_call(cursor):
+        return cursor.kind == CursorKind.CALL_EXPR
+
+    @staticmethod
+    def _is_a_callable(cursor):
+        return cursor.kind == CursorKind.FUNCTION_DECL
 
     def _get_name(self, cursor):
-        if cursor.kind == CursorKind.FUNCTION_DECL:
+        if Callable._is_a_callable(cursor):
             return _get_function_signature(cursor)
         return '{} is not supported'.format(cursor.kind)

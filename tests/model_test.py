@@ -1,5 +1,6 @@
 # Copyright (C) 2018 R. Knuus
 
+from clang.cindex import CursorKind
 from INCode.models import Callable, CompilationDatabases, File, Index
 from unittest.mock import MagicMock
 import os
@@ -277,7 +278,7 @@ def test__scenario__select_entry_location_and_follow_references__data_model_is_c
 
 
 def build_callable():
-    return Callable('foo', MagicMock(), MagicMock())
+    return Callable(MagicMock(), MagicMock())
 
 
 def test__callable__check_whether_included__default_is_excluded():
@@ -298,40 +299,19 @@ def test__callable__include_then_exclude_and_check_whether_included__return_incl
     assert not callable.is_included()
 
 
-def build_cursor(file):
+def build_cursor(file, return_value, signature, kind):
     cursor = MagicMock()
     cursor.translation_unit.spelling = file
+    cursor.result_type.spelling = return_value
+    cursor.displayname = signature
+    cursor.kind = kind
     return cursor
-
-
-# def build_callable_tree(tree_data)
-#     index = MagicMock()
-#     callables = []
-
-#     for callable_data in tree_data:
-#         callable = Callable(callable_data.function, build_cursor(callable_data.file), index)
-#     # parent = Callable('foo', build_cursor('foo.cpp'), index)
-#     # child = Callable('baz', build_cursor('bar.cpp'), index)
-
-#     tree_data_iterator = iter(tree_data)
-#     next(tree_data_iterator)
-#     index.lookup.side_effect = 
-#     for callable_data in tree_data_iterator:
-
-#     # index.lookup.side_effect = [parent, child]
-
-#     parent.referenced_usrs_.append(child.get_id())
-#     index.lookup.return_value = child
-#     parent.include()
-#     child.include()
-
-#     return index, callables
 
 
 def test__callable__export_included_parent_calling_included_child__export_correct_diagram():
     index = MagicMock()
-    parent = Callable('foo', build_cursor('foo.cpp'), index)
-    child = Callable('baz', build_cursor('bar.cpp'), index)
+    parent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    child = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     parent.referenced_usrs_.append(child.get_id())
     index.lookup.return_value = child
     parent.include()
@@ -339,7 +319,7 @@ def test__callable__export_included_parent_calling_included_child__export_correc
     diagram = parent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> bar.cpp: baz
+foo.cpp -> bar.cpp: void baz()
 
 @enduml'''
 
@@ -348,8 +328,8 @@ foo.cpp -> bar.cpp: baz
 
 def test__callable__export_included_parent_calling_excluded_child__export_correct_diagram():
     index = MagicMock()
-    parent = Callable('foo', build_cursor('foo.cpp'), index)
-    child = Callable('baz', build_cursor('bar.cpp'), index)
+    parent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    child = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     parent.referenced_usrs_.append(child.get_id())
     index.lookup.return_value = child
     parent.include()
@@ -365,8 +345,8 @@ def test__callable__export_included_parent_calling_excluded_child__export_correc
 
 def test__callable__export_excluded_parent_calling_included_child__export_correct_diagram():
     index = MagicMock()
-    parent = Callable('foo', build_cursor('foo.cpp'), index)
-    child = Callable('baz', build_cursor('bar.cpp'), index)
+    parent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    child = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     parent.referenced_usrs_.append(child.get_id())
     index.lookup.return_value = child
     parent.exclude()
@@ -374,7 +354,7 @@ def test__callable__export_excluded_parent_calling_included_child__export_correc
     diagram = parent.export()
     expected_diagram = '''@startuml
 
- -> bar.cpp: baz
+ -> bar.cpp: void baz()
 
 @enduml'''
 
@@ -383,9 +363,9 @@ def test__callable__export_excluded_parent_calling_included_child__export_correc
 
 def test__callable__export_two_included_child_levels__export_correct_diagram():
     index = MagicMock()
-    grandparent = Callable('foo', build_cursor('foo.cpp'), index)
-    parent = Callable('bar', build_cursor('bar.cpp'), index)
-    child = Callable('baz', build_cursor('baz.cpp'), index)
+    grandparent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    parent = Callable(build_cursor('bar.cpp', 'void', 'bar()', CursorKind.FUNCTION_DECL), index)
+    child = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     grandparent.referenced_usrs_.append(parent.get_id())
     parent.referenced_usrs_.append(child.get_id())
     index.lookup.side_effect = [parent, child]
@@ -395,8 +375,8 @@ def test__callable__export_two_included_child_levels__export_correct_diagram():
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> bar.cpp: bar
-bar.cpp -> baz.cpp: baz
+foo.cpp -> bar.cpp: void bar()
+bar.cpp -> baz.cpp: void baz()
 
 @enduml'''
 
@@ -407,9 +387,9 @@ bar.cpp -> baz.cpp: baz
 
 def test__callable__export_grandparent_and_child_but_not_parent__export_correct_diagram():
     index = MagicMock()
-    grandparent = Callable('foo', build_cursor('foo.cpp'), index)
-    parent = Callable('bar', build_cursor('bar.cpp'), index)
-    child = Callable('baz', build_cursor('baz.cpp'), index)
+    grandparent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    parent = Callable(build_cursor('bar.cpp', 'void', 'bar()', CursorKind.FUNCTION_DECL), index)
+    child = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     grandparent.referenced_usrs_.append(parent.get_id())
     parent.referenced_usrs_.append(child.get_id())
     index.lookup.side_effect = [parent, child]
@@ -419,7 +399,7 @@ def test__callable__export_grandparent_and_child_but_not_parent__export_correct_
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> baz.cpp: baz
+foo.cpp -> baz.cpp: void baz()
 
 @enduml'''
 

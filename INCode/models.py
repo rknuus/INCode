@@ -37,6 +37,7 @@ class CompilationDatabases(object):
             #     pass  # TODO(KNR): ??
         return None
 
+
 class Index(object):
     '''Represents the index of all callables and processes the compilation database.'''
 
@@ -113,7 +114,7 @@ class File(object):
             for cursor in self.tu_.cursor.walk_preorder():
                 if cursor.location.file is not None and cursor.kind == CursorKind.FUNCTION_DECL:
                     if self.index_.is_interesting(cursor):
-                        callable = Callable(_get_function_signature(cursor), cursor, self.index_)
+                        callable = Callable(cursor, self.index_)
                         if callable.get_id() not in self.callable_usrs_:
                             self.callable_usrs_.append(callable.get_id())
                         self.index_.register(callable)
@@ -127,9 +128,9 @@ class File(object):
 class Callable(object):
     '''Represents a callable and provides a list of referenced callables.'''
 
-    def __init__(self, name, cursor, index, initialize=True):
+    def __init__(self, cursor, index, initialize=True):
         super(Callable, self).__init__()
-        self.name_ = name
+        self.name_ = self._get_name(cursor)
         self.cursor_ = cursor
         self.index_ = index
         self.included_ = False
@@ -181,7 +182,12 @@ class Callable(object):
             if cursor.kind == CursorKind.CALL_EXPR:
                 if self.index_.is_interesting(cursor):
                     definition = cursor.referenced
-                    callable = Callable(_get_function_signature(definition), definition, self.index_, False)
+                    callable = Callable(definition, self.index_, False)
                     if callable.get_id() not in self.referenced_usrs_:
                         self.referenced_usrs_.append(callable.get_id())
                     self.index_.register(callable)
+
+    def _get_name(self, cursor):
+        if cursor.kind == CursorKind.FUNCTION_DECL:
+            return _get_function_signature(cursor)
+        return '{} is not supported'.format(cursor.kind)

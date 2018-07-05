@@ -130,8 +130,9 @@ class Callable(object):
 
     def __init__(self, cursor, index, initialize=True):
         super(Callable, self).__init__()
-        self.name_ = self._get_name(cursor)
         self.cursor_ = cursor
+        self.name_ = self._get_name(cursor)
+        self.sender_ = self._get_sender(cursor)
         self.index_ = index
         self.included_ = False
         self.referenced_usrs_ = []
@@ -165,9 +166,9 @@ class Callable(object):
         diagram = ''
         for usr in self.referenced_usrs_:
             callable = self.index_.lookup(usr)
-            sender = self.get_translation_unit() if self.is_included() else parent_sender
+            sender = self.sender_ if self.is_included() else parent_sender
             if callable.is_included():
-                diagram += '{} -> {}: {}\n'.format(sender, callable.get_translation_unit(), callable.get_name())
+                diagram += '{} -> {}: {}\n'.format(sender, callable.sender_, callable.get_name())
             diagram += callable.export_relations_(sender)
         return diagram
 
@@ -192,9 +193,21 @@ class Callable(object):
 
     @staticmethod
     def _is_a_callable(cursor):
-        return cursor.kind == CursorKind.FUNCTION_DECL
+        return cursor.kind == CursorKind.FUNCTION_DECL or cursor.kind == CursorKind.CXX_METHOD
+
+    def _get_class(self, cursor):
+        if cursor.kind == CursorKind.CXX_METHOD:
+            return cursor.lexical_parent.displayname
+        return '{} is not supported'.format(cursor.kind)
 
     def _get_name(self, cursor):
-        if Callable._is_a_callable(cursor):
+        if cursor.kind == CursorKind.FUNCTION_DECL or cursor.kind == CursorKind.CXX_METHOD:
             return _get_function_signature(cursor)
+        return '{} is not supported'.format(cursor.kind)
+
+    def _get_sender(self, cursor):
+        if cursor.kind == CursorKind.FUNCTION_DECL:
+            return self.get_translation_unit()
+        elif cursor.kind == CursorKind.CXX_METHOD:
+            return self._get_class(cursor)
         return '{} is not supported'.format(cursor.kind)

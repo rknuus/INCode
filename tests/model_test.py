@@ -426,3 +426,46 @@ def test__callable__export_definition_loaded_over_declaration__export_correct_di
 @enduml'''.format(cross_tu, dep_tu)
 
     assert diagram == expected_diagram
+
+
+def test__callable__for_member_method__sender_is_class(directory):
+    _, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
+class B {
+public:
+    void m() {
+        p();
+    }
+
+private:
+    void p() {}
+};
+''')
+    callables = file.get_callables()
+    for callable in callables:
+        assert callable.sender_ == 'B'
+
+
+def test__callable__export_of_member_method__sender_is_class(directory):
+    _, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
+class B {
+public:
+    void m() {
+        p();
+    }
+
+private:
+    void p() {}
+};
+''')
+    callables = file.get_callables()
+    for callable in callables:
+        callable.include()
+
+    diagram = callables[0].export()
+    expected_diagram = '''@startuml
+
+B -> B: void p()
+
+@enduml'''
+
+    assert diagram == expected_diagram

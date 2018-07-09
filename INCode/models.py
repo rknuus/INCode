@@ -80,7 +80,8 @@ class Index(object):
         return self.callable_table_[usr]
 
     def is_interesting(self, cursor):
-        return (cursor.get_usr() not in self.callable_table_ or cursor.is_definition())
+        return (cursor.get_usr() not in self.callable_table_ or
+                (cursor.is_definition() and len(self.callable_table_[cursor.get_usr()].referenced_usrs_) == 0))
 
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):

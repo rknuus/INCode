@@ -82,15 +82,6 @@ def local_and_xref_dep():
         yield directory
 
 
-def test__compilation_database__add_compilation_database__can_get_list_of_translation_units(directory):
-    generate_project(directory, {'foo.cpp': '\n', 'bar.cpp': '\n'})
-    db = CompilationDatabases()
-    db.add_compilation_database(directory)
-    files = db.get_files()
-    assert 'foo.cpp' in files
-    assert 'bar.cpp' in files
-
-
 def build_index_with_file(directory, file_name, file_content):
     file_path = os.path.join(directory, 'empty.cpp')
     generate_project(directory, {file_path: file_content})
@@ -101,13 +92,22 @@ def build_index_with_file(directory, file_name, file_content):
     return index, file
 
 
+def get_callable_names(callables):
+    return [callable.get_name() for callable in callables]
+
+
+def test__compilation_database__add_compilation_database__can_get_list_of_translation_units(directory):
+    generate_project(directory, {'foo.cpp': '\n', 'bar.cpp': '\n'})
+    db = CompilationDatabases()
+    db.add_compilation_database(directory)
+    files = db.get_files()
+    assert 'foo.cpp' in files
+    assert 'bar.cpp' in files
+
+
 def test__file__get_callables_for_empty_file__returns_empty_list(directory):
     _, file = build_index_with_file(directory, 'empty.cpp', '\n')
     assert list(file.get_callables()) == []
-
-
-def get_callable_names(callables):
-    return [callable.get_name() for callable in callables]
 
 
 def test__file__get_callables_for_file_with_one_function__returns_that_function(directory):
@@ -129,25 +129,98 @@ def test__file__get_callables_for_declared_and_then_defined_function__returns_on
     assert [callable.is_definition() for callable in callables] == [True]
 
 
+def map_callables(callables):
+    return [callable.get_name() for callable in callables]
+
+
+def map_referenced_callables(callables):
+    return {callable.get_name(): map_callables(callable.get_referenced_callables()) for callable in callables}
+
+
 def test__callable__get_referenced_callables_for_empty_function__returns_empty_list(directory):
     _, file = build_index_with_file(directory, 'non_referencing_function.cpp', 'void a() {}\n')
-    callable = file.get_callables()[0]
-    assert callable.get_referenced_callables() == []
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': []}
+    assert actual == expected
 
 
 def test__callable__get_referenced_callables_for_function_calling_another_one__returns_that_function(directory):
     _, file = build_index_with_file(directory, 'referencing_function.cpp', 'void a() {}\nvoid b() {\na();\n}\n')
-    callable = file.get_callables()[1]
-    referenced_callables = callable.get_referenced_callables()
-    assert get_callable_names(referenced_callables) == ['void a()']
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': [], 'void b()': ['void a()']}
+    assert actual == expected
 
 
 def test__callable__get_referenced_callables_for_function_calling_two_others__returns_both_function(directory):
     _, file = build_index_with_file(directory, 'double_referencing_function.cpp',
                                     'void a() {}\nvoid b() {}\nvoid c() {\na();\nb();\n}\n')
-    callable = file.get_callables()[2]
-    referenced_callables = callable.get_referenced_callables()
-    assert get_callable_names(referenced_callables) == ['void a()', 'void b()']
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': [], 'void b()': [], 'void c()': ['void a()', 'void b()']}
+    assert actual == expected
+
+
+def test__callable__get_referenced_callables_for_function_calling_one_overloaded_function__returns_that_function(
+    directory):
+    _, file = build_index_with_file(directory, 'referencing_one_overloaded_function.cpp',
+                                    'void a() {}\nvoid a(int i) {}\nvoid b() {\na();\n}\n')
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': [], 'void a(int)': [], 'void b()': ['void a()']}
+    assert actual == expected
+
+
+def test__callable__get_referenced_callables_for_function_calling_all_overloaded_functions__returns_all_functions(
+    directory):
+    _, file = build_index_with_file(directory, 'referencing_all_overloaded_function.cpp',
+                                    'void a() {}\nvoid a(int i) {}\nvoid b() {\na();\na(1);\n}\n')
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': [], 'void a(int)': [], 'void b()': ['void a()', 'void a(int)']}
+    assert actual == expected
+
+
+def test__callable__get_referenced_callables_for_overloaded_function_calling_other_one__returns_that_functions(
+    directory):
+    _, file = build_index_with_file(directory, 'overloaded_referencing_other_function.cpp',
+                                    'void a() {}\nvoid a(int i) {\na();\n}\n')
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': [], 'void a(int)': ['void a()']}
+    assert actual == expected
+
+
+def test__callable__get_referenced_callables_for_method_calling_method__returns_method(directory):
+    _, file = build_index_with_file(directory, 'method_referencing_method.cpp',
+                                    'class C {\npublic:\nvoid a(); void b() { a(); }\n};\n')
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': [], 'void b()': ['void a()']}
+    assert actual == expected
+
+
+def test__callable__get_referenced_callables_for_overloaded_method_calling_method__returns_method(directory):
+    _, file = build_index_with_file(directory, 'overloaded_method_referencing_method.cpp',
+                                    'class C {\npublic:\nvoid a() {}\nvoid a(int i) { b(); }\nvoid b() {}\n};\n')
+    actual = map_referenced_callables(file.get_callables())
+    expected = {'void a()': [], 'void a(int)': ['void b()'], 'void b()': []}
+    assert actual == expected
+
+
+def test__index__ensure_registered_callable_with_references_not_overwritten(directory):
+    _, file = build_index_with_file(directory, 'bug.cpp', '''
+class B {
+public:
+    void m() {
+        p();
+    }
+    void m(int i) {
+        m();
+    }
+    void p() {}
+};
+''')
+    actual = map_referenced_callables(file.get_callables())
+    assert actual['void m()'] == ['void p()']
+    assert actual['void m(int)'] == ['void m()']
+    assert actual['void p()'] == []
+    expected = {'void m()': ['void p()'], 'void m(int)': ['void m()'], 'void p()': []}
+    assert actual == expected
 
 
 def test__callable__get_referenced_callables_of_another_file__returns_that_function(two_translation_units):
@@ -461,6 +534,39 @@ private:
     for callable in callables:
         callable.include()
 
+    diagram = callables[0].export()
+    expected_diagram = '''@startuml
+
+B -> B: void p()
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
+def test__callable__export_of_overloaded_member_method__sender_is_class(directory):
+    _, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
+class B {
+public:
+    void m() {
+        p();
+    }
+    void m(int i) {
+        m();
+    }
+
+private:
+    void p() {}
+};
+''')
+    callables = file.get_callables()
+    for callable in callables:
+        callable.include()
+
+    for callable in callables:
+        if 'p' not in callable.get_name():
+            referenced_callables = callable.get_referenced_callables()
+            assert len(referenced_callables) > 0
     diagram = callables[0].export()
     expected_diagram = '''@startuml
 

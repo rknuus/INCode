@@ -64,8 +64,6 @@ class Index(object):
         candidates = Index._gen_search(declaration.get_name(), translation_units)
         for candidate in candidates:
             self.load(candidate)
-        if declaration.is_included():
-            self.callable_table_[declaration.get_id()].include()
         return self.callable_table_[declaration.get_id()]
 
     def register(self, callable):
@@ -135,7 +133,6 @@ class Callable(object):
         self.name_ = self._get_name(cursor)
         self.sender_ = self._get_sender(cursor)
         self.index_ = index
-        self.included_ = False
         self.referenced_usrs_ = []
         if initialize:
             self.initialize()
@@ -149,29 +146,6 @@ class Callable(object):
 
     def get_translation_unit(self):
         return self.cursor_.translation_unit.spelling
-
-    def include(self):
-        self.included_ = True
-
-    def exclude(self):
-        self.included_ = False
-
-    def is_included(self):
-        return self.included_
-
-    def export(self):
-        sender = self.get_translation_unit() if self.is_included() else ''
-        return '@startuml\n\n{}\n@enduml'.format(self.export_relations_(sender))
-
-    def export_relations_(self, parent_sender):
-        diagram = ''
-        for usr in self.referenced_usrs_:
-            callable = self.index_.lookup(usr)
-            sender = self.sender_ if self.is_included() else parent_sender
-            if callable.is_included():
-                diagram += '{} -> {}: {}\n'.format(sender, callable.sender_, callable.get_name())
-            diagram += callable.export_relations_(sender)
-        return diagram
 
     def is_definition(self):
         return self.cursor_.is_definition()

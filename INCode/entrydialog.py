@@ -69,5 +69,5 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         if current and len(current) > 0:
             entry_point = self.entry_points_.item(current[0].row(), 0)
             self.hide()
-            self.window_ = DiagramConfiguration(self.index_, entry_point)
+            self.window_ = DiagramConfiguration(entry_point)
             self.window_.show()

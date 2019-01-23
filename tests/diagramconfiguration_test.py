@@ -167,7 +167,7 @@ def test__callable_tree_item__export_definition_loaded_over_declaration__export_
 
 
 
-def test__callable__export_of_overloaded_member_method__sender_is_class(directory):
+def test__callable__export_of_recursive_method__sender_is_class(directory):
     index, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
 class B {
 public:
@@ -188,7 +188,7 @@ private:
             referenced_callables = callable.get_referenced_callables()
             assert len(referenced_callables) > 0
 
-    export_callable = callables[0]
+    export_callable = callables[1]
     export_callable_tree_item = CallableTreeItem(export_callable)
     export_callable_tree_item.include()
 
@@ -199,7 +199,7 @@ private:
     diagram = export_callable_tree_item.export()
     expected_diagram = '''@startuml
 
-B -> B: void p()
+B -> B: void m()
 
 @enduml'''
 

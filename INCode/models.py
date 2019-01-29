@@ -61,7 +61,7 @@ class Index(object):
 
     def load_definition(self, declaration):
         translation_units = Index._gen_open(self.compilation_databases_.get_files())
-        candidates = Index._gen_search(declaration.get_name(), translation_units)
+        candidates = Index._gen_search(declaration.cursor_.spelling, translation_units)
         for candidate in candidates:
             self.load(candidate)
         return self.callable_table_[declaration.get_id()]
@@ -78,8 +78,9 @@ class Index(object):
         return self.callable_table_[usr]
 
     def is_interesting(self, cursor):
-        return (cursor.get_usr() not in self.callable_table_ or
-                (cursor.is_definition() and len(self.callable_table_[cursor.get_usr()].referenced_usrs_) == 0))
+        return ((cursor.get_usr() not in self.callable_table_ or
+                 (cursor.is_definition() and len(self.callable_table_[cursor.get_usr()].referenced_usrs_) == 0))
+                and cursor.kind != CursorKind.CONSTRUCTOR)
 
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):
@@ -110,9 +111,10 @@ class File(object):
         self.callable_usrs_ = []
         try:
             self.tu_ = self.index_.get_clang_index().parse(None, command)
+
             for cursor in self.tu_.cursor.walk_preorder():
-                if (cursor.location.file is not None and Callable._is_a_callable(cursor) and
-                    self.index_.is_interesting(cursor)):
+                if (cursor.location.file is not None and Callable._is_a_callable(cursor)
+                        and self.index_.is_interesting(cursor)):
                     callable = Callable(cursor, self.index_)
                     if callable.get_id() not in self.callable_usrs_:
                         self.callable_usrs_.append(callable.get_id())
@@ -158,7 +160,7 @@ class Callable(object):
             if Callable._is_a_call(cursor) and self.index_.is_interesting(cursor):
                 definition = cursor.referenced
                 callable = Callable(definition, self.index_, False)
-                if callable.get_id() not in self.referenced_usrs_:
+                if callable.get_id() not in self.referenced_usrs_ and definition.kind != CursorKind.CONSTRUCTOR:
                     self.referenced_usrs_.append(callable.get_id())
                 self.index_.register(callable)
 

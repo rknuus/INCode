@@ -2,8 +2,10 @@
 
 from enum import IntEnum
 from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
-from PyQt5.QtCore import QModelIndex, Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
+import os.path
+
 
 class TreeColumns(IntEnum):
     FIRST_COLUMN = 0
@@ -14,43 +16,37 @@ class CallableTreeItem(QTreeWidgetItem):
     def __init__(self, callable, parent=None):
         super(QTreeWidgetItem, self).__init__(parent)
 
+        self.common_path_ = ''
         if isinstance(parent, CallableTreeItem):
             parent.referenced_items_.append(self)
+            self.common_path_ = parent.common_path_
+
         self.index_ = callable.index_
         self.callable_id_ = callable.get_id()
-        self.state_ = Qt.Unchecked
-        self.sender_ = callable._get_sender(callable.cursor_)
+        self.sender_ = callable.sender_
         self.referenced_items_ = []
         self.setText(TreeColumns.FIRST_COLUMN, callable.get_name())
         self.setFlags(self.flags() | Qt.ItemIsUserCheckable)
-        self.setCheckState(TreeColumns.FIRST_COLUMN, self.get_check_state())
+        self.setCheckState(TreeColumns.FIRST_COLUMN, Qt.Unchecked)
         # TODO(KNR): probably prevent drag'n'drop operation
 
     def get_callable(self):
         return self.index_.lookup(self.callable_id_)
 
-    def setData(self, column, role, value):
-        if column == TreeColumns.FIRST_COLUMN and role == Qt.CheckStateRole:
-            self.update_check_state(value)
-        super(CallableTreeItem, self).setData(column, role, value)
-
     def get_check_state(self):
-        return self.state_
-
-    def update_check_state(self, state):
-        self.state_ = state
+        return self.checkState(TreeColumns.FIRST_COLUMN)
 
     def include(self):
-        self.state_ = Qt.Checked
+        self.setCheckState(TreeColumns.FIRST_COLUMN, Qt.Checked)
 
     def exclude(self):
-        self.state_ = Qt.Unchecked
+        self.setCheckState(TreeColumns.FIRST_COLUMN, Qt.Unchecked)
 
     def is_included(self):
-        return self.state_ == Qt.Checked
+        return self.get_check_state() == Qt.Checked
 
     def export(self):
-        callable = self.get_callable();
+        callable = self.get_callable()
         sender = callable.get_translation_unit() if self.is_included() else ''
         return '@startuml\n\n{}\n@enduml'.format(self.export_relations_(sender))
 
@@ -58,11 +54,19 @@ class CallableTreeItem(QTreeWidgetItem):
         diagram = ''
         for child_item in self.referenced_items_:
             child_callable = child_item.get_callable()
-            sender = self.sender_ if self.is_included() else parent_sender
+            sender = self.get_sender() if self.is_included() else parent_sender
             if child_item.is_included():
-                diagram += '{} -> {}: {}\n'.format(sender, child_callable.sender_, child_callable.get_name())
+                diagram += '{} -> {}: {}\n'.format(sender,
+                                                   child_item.get_sender(),
+                                                   child_callable.get_name())
             diagram += child_item.export_relations_(sender)
         return diagram
+
+    def get_sender(self):
+        if os.path.isabs(self.sender_):
+            self.sender_ = '"' + self.sender_.replace(self.common_path_, '') + '"'
+        return self.sender_
+
 
 
 class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
@@ -78,8 +82,9 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         # TODO(KNR): to store the root item as member of this class is a hack, the tree should somehow provide
         # this information
         self.entry_point_item_ = CallableTreeItem(entry_point, self.tree_)
+        self.entry_point_item_.common_path_ = entry_point_item.common_path_
         for child in entry_point.get_referenced_callables():
-            child_item = CallableTreeItem(child, self.entry_point_item_)
+            CallableTreeItem(child, self.entry_point_item_)
 
         self.tree_.expandAll()
         for column in range(self.tree_.columnCount()):
@@ -100,6 +105,7 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         for child in callable.get_referenced_callables():
             child.initialize()  # lazy load the referenced callables
             child_tree_item = CallableTreeItem(child, current_item)
+            child_tree_item.setExpanded(True)
 
     def export(self):
         print('exporting ', self.entry_point_item_.get_callable().get_name())

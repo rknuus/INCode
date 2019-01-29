@@ -3,7 +3,7 @@
 from clang.cindex import CursorKind
 from INCode.models import Callable, CompilationDatabases, File, Index
 from unittest.mock import MagicMock
-from test_environment_generation import *
+from tests.test_environment_generation import *
 import os.path
 
 

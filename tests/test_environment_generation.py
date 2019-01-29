@@ -77,8 +77,8 @@ def local_and_xref_dep():
         yield directory
 
 
-def build_index_with_file(directory, file_name, file_content):
-    file_path = os.path.join(directory, 'empty.cpp')
+def build_index_with_file(directory, file_name='empty.cpp', file_content=''):
+    file_path = os.path.join(directory, file_name)
     generate_project(directory, {file_path: file_content})
     db = CompilationDatabases()
     db.add_compilation_database(directory)

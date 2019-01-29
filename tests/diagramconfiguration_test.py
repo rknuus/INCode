@@ -1,12 +1,12 @@
-from INCode.models import CompilationDatabases, Index, Callable
+from INCode.models import Callable
 from INCode.diagramconfiguration import DiagramConfiguration, CallableTreeItem
-from test_environment_generation import *
+from tests.test_environment_generation import *
 from clang.cindex import CursorKind
 from unittest.mock import MagicMock, patch
 import os.path
 
 
-def build_callable_tree_item(index = MagicMock()):
+def build_callable_tree_item():
     return CallableTreeItem(Callable(MagicMock(), MagicMock()))
 
 
@@ -101,7 +101,7 @@ def test__callable_tree_item__export_two_included_child_levels__export_correct_d
     parent = CallableTreeItem(parent_callable, grandparent)
     child_callable = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.side_effect = [grandparent_callable ,parent_callable, child_callable]
+    index.lookup.side_effect = [grandparent_callable, parent_callable, child_callable]
     grandparent.include()
     parent.include()
     child.include()
@@ -159,15 +159,14 @@ def test__callable_tree_item__export_definition_loaded_over_declaration__export_
     diagram = parent.export()
     expected_diagram = '''@startuml
 
-{} -> {}: void a()
+"{}" -> "{}": void a()
 
 @enduml'''.format(cross_tu, dep_tu)
 
     assert diagram == expected_diagram
 
 
-
-def test__callable__export_of_recursive_method__sender_is_class(directory):
+def test__callable__export_of_recursive_method__export_correct_diagram(directory):
     index, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
 class B {
 public:
@@ -179,7 +178,9 @@ public:
     }
 
 private:
-    void p() {}
+    void p() {
+        p()
+    }
 };
 ''')
     callables = file.get_callables()
@@ -188,25 +189,81 @@ private:
             referenced_callables = callable.get_referenced_callables()
             assert len(referenced_callables) > 0
 
-    export_callable = callables[1]
+    export_callable = callables[2]
+    assert export_callable.get_name() == "void p()"
     export_callable_tree_item = CallableTreeItem(export_callable)
     export_callable_tree_item.include()
 
     for callable in export_callable.get_referenced_callables():
         callable_tree_item = CallableTreeItem(callable, export_callable_tree_item)
         callable_tree_item.include()
+        for child_callable in callable.get_referenced_callables():
+            child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+            child_callable_tree_item.include()
 
     diagram = export_callable_tree_item.export()
     expected_diagram = '''@startuml
 
-B -> B: void m()
+B -> B: void p()
+B -> B: void p()
 
 @enduml'''
 
     assert diagram == expected_diagram
 
-def setup_diagram_configuration(directory):
-    index, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
+
+def test__callable__export_of_member_method_and_function__export_correct_diagram(directory):
+    file_name = 'identify_local_function.cpp'
+    index, file = build_index_with_file(directory, file_name, '''
+void func();
+    
+class B {
+public:
+    void m() {
+        p();
+        func();
+    }
+    void m(int i) {
+        m();
+    }
+
+private:
+    void p() {}
+};
+
+void func() {
+    B b;
+    b.m();
+}
+''')
+
+    callables = file.get_callables()
+
+    export_callable = callables[0]
+    assert export_callable.get_name() == "void func()"
+    export_callable_tree_item = CallableTreeItem(export_callable)
+    export_callable_tree_item.include()
+
+    for callable in export_callable.get_referenced_callables():
+        callable_tree_item = CallableTreeItem(callable, export_callable_tree_item)
+        callable_tree_item.include()
+        for child_callable in callable.get_referenced_callables():
+            child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+            child_callable_tree_item.include()
+
+    diagram = export_callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> B: void m()
+B -> B: void p()
+B -> "{0}": void func()
+
+@enduml'''.format(os.path.join(directory, file_name))
+
+    assert diagram == expected_diagram
+
+
+def setup_diagram_configuration(directory, code='''
 class B {
 public:
     void a() {
@@ -221,14 +278,36 @@ public:
     void c() {}
     void d() {}
 };
-''')
+'''):
+    index, file = build_index_with_file(directory, 'identify_local_function.cpp', code)
     export_callable = file.get_callables()[0]
     entry_point = MagicMock()
     entry_point.get_callable.return_value = export_callable
 
     return DiagramConfiguration(entry_point)
 
-def test__reveal_children__has_children_after_reveal(directory):
+
+def test__diagram_configuration__reveal_children_of_item_without_references__has_no_children_after_reveal(directory):
+    diagram_configuration = setup_diagram_configuration(directory, '''
+class B {
+public:
+    void a() {
+        b();
+    }
+
+    void b() {
+    }
+};
+''')
+
+    child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
+    diagram_configuration.tree_.setCurrentItem(child_tree_item)
+
+    diagram_configuration.revealChildren()
+    assert child_tree_item.childCount() == 0
+
+
+def test__diagram_configuration__reveal_children__has_children_after_reveal(directory):
     diagram_configuration = setup_diagram_configuration(directory)
 
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
@@ -238,7 +317,7 @@ def test__reveal_children__has_children_after_reveal(directory):
     assert child_tree_item.childCount() > 0
 
 
-def test__reveal_children__no_duplicates_after_multiple_reveal(directory):
+def test__diagram_configuration__reveal_children__no_duplicates_after_multiple_reveal(directory):
     diagram_configuration = setup_diagram_configuration(directory)
 
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
@@ -250,15 +329,8 @@ def test__reveal_children__no_duplicates_after_multiple_reveal(directory):
 
     assert child_tree_item.childCount() == count
 
-def test__reveal_children__check_if_reveals__current_item_is_null(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
-    diagram_configuration.revealChildren()
 
-    child_items = diagram_configuration.entry_point_item_.referenced_items_
-    for child_item in child_items:
-        assert len(child_item.referenced_items_) == 0
-
-def test__reveal_children__check_if_reveals__current_item_has_children(directory):
+def test__diagram_configuration__reveal_already_revealed_item__no_action(directory):
     diagram_configuration = setup_diagram_configuration(directory)
 
     entry_point_item = diagram_configuration.entry_point_item_
@@ -268,6 +340,27 @@ def test__reveal_children__check_if_reveals__current_item_has_children(directory
         diagram_configuration.revealChildren()
 
     mock.assert_not_called()
+
+
+def test__diagram_configuration__reveal_if_no_item_selected__no_action(directory):
+    diagram_configuration = setup_diagram_configuration(directory)
+    diagram_configuration.revealChildren()
+
+    child_items = diagram_configuration.entry_point_item_.referenced_items_
+    for child_item in child_items:
+        assert len(child_item.referenced_items_) == 0
+
+
+def test__diagram_configuration__reveal_children__check_if_tree_expands(directory):
+    diagram_configuration = setup_diagram_configuration(directory)
+
+    child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
+    diagram_configuration.tree_.setCurrentItem(child_tree_item)
+    diagram_configuration.revealChildren()
+
+    for child_child_tree_item in child_tree_item.referenced_items_:
+        assert child_child_tree_item.isExpanded()
+
 
 def test__diagram_configuration__export_calls_entry_point_export(directory):
     diagram_configuration = setup_diagram_configuration(directory)

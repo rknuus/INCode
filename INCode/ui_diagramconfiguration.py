@@ -56,7 +56,7 @@ class Ui_DiagramConfiguration(object):
         self.exitAction_.setText(_translate("DiagramConfiguration", "E&xit"))
         self.exitAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+Q"))
         self.revealChildrenAction_.setText(_translate("DiagramConfiguration", "Reveal Children"))
-        self.revealChildrenAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+R, R"))
+        self.revealChildrenAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+R"))
         self.exportAction_.setText(_translate("DiagramConfiguration", "Export"))
         self.exportAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+S"))
 

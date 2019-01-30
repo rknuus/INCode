@@ -1,95 +1,11 @@
 # Copyright (C) 2018 R. Knuus
 
 from clang.cindex import CursorKind
-from INCode.models import Callable, CompilationDatabases, File, Index
+from INCode.models import CompilationDatabases, Index
 from unittest.mock import MagicMock
-import os
-import pytest
-import tempfile
-
-
-def generate_project(directory, files):
-    for file, content in files.items():
-        generate_file(directory, file, content)
-    generate_compilation_database(directory, files.keys())
-
-
-def generate_file(directory, file, content):
-    with open(os.path.join(directory, file), 'w') as file:
-        file.write(content)
-
-
-def generate_compilation_database(directory, source_files):
-    entries = []
-    for source_file in source_files:
-        entry = ('{ "directory": "%(directory)s", "command": "clang++ -o %(source_file)s.o -c %(source_file)s", '
-                 '"file": "%(source_file)s" }' % locals())
-        entries.append(entry)
-    content = '[{}]'.format(','.join(entries))
-    generate_file(directory, 'compile_commands.json', content)
-
-
-@pytest.fixture(scope='module')
-def directory():
-    with tempfile.TemporaryDirectory() as fixture_directory:
-        yield fixture_directory
-
-
-@pytest.fixture(scope='module')
-def two_translation_units():
-    with tempfile.TemporaryDirectory('two_translation_units') as directory:
-        generate_project(directory, {
-            os.path.join(directory, 'dependency.h'): '''
-                      #pragma once
-                      void a();
-                      ''',
-            os.path.join(directory, 'dependency.cpp'): '''
-                      #include "dependency.h"
-                      void a() {}
-                      ''',
-            os.path.join(directory, 'cross_tu_referencing_function.cpp'): '''
-                      #include "dependency.h"
-                      void b() {
-                          a();
-                      }
-                      '''
-        })
-        yield directory
-
-
-@pytest.fixture(scope='module')
-def local_and_xref_dep():
-    with tempfile.TemporaryDirectory('local_and_xref_dep') as directory:
-        generate_project(directory, {
-            os.path.join(directory, 'dependency.h'): '''
-                      #pragma once
-                      void a();
-                      ''',
-            os.path.join(directory, 'dependency.cpp'): '''
-                      #include "dependency.h"
-                      void c() {}
-                      void a() {
-                          c();
-                      }
-                      ''',
-            os.path.join(directory, 'cross_tu_referencing_function.cpp'): '''
-                      #include "dependency.h"
-                      void b() {
-                          a();
-                      }
-                      '''
-        })
-        yield directory
-
-
-def build_index_with_file(directory, file_name, file_content):
-    file_path = os.path.join(directory, 'empty.cpp')
-    generate_project(directory, {file_path: file_content})
-    db = CompilationDatabases()
-    db.add_compilation_database(directory)
-    index = Index(db)
-    file = index.load(file_path)
-    return index, file
+from tests.test_environment_generation import build_index_with_file, directory, \
+    generate_project, local_and_xref_dep, two_translation_units
+import os.path
 
 
 def get_callable_names(callables):
@@ -190,7 +106,7 @@ def test__callable__get_referenced_callables_for_method_calling_method__returns_
     _, file = build_index_with_file(directory, 'method_referencing_method.cpp',
                                     'class C {\npublic:\nvoid a(); void b() { a(); }\n};\n')
     actual = map_referenced_callables(file.get_callables())
-    expected = {'void a()': [], 'void b()': ['void a()']}
+    expected = {'void C::a()': [], 'void C::b()': ['void C::a()']}
     assert actual == expected
 
 
@@ -198,12 +114,14 @@ def test__callable__get_referenced_callables_for_overloaded_method_calling_metho
     _, file = build_index_with_file(directory, 'overloaded_method_referencing_method.cpp',
                                     'class C {\npublic:\nvoid a() {}\nvoid a(int i) { b(); }\nvoid b() {}\n};\n')
     actual = map_referenced_callables(file.get_callables())
-    expected = {'void a()': [], 'void a(int)': ['void b()'], 'void b()': []}
+    expected = {'void C::a()': [], 'void C::a(int)': ['void C::b()'], 'void C::b()': []}
     assert actual == expected
 
 
 def test__index__ensure_registered_callable_with_references_not_overwritten(directory):
     _, file = build_index_with_file(directory, 'bug.cpp', '''
+void d();
+
 class B {
 public:
     void m() {
@@ -212,14 +130,20 @@ public:
     void m(int i) {
         m();
     }
-    void p() {}
+    void p() {
+        d();
+    }
 };
+
+void d() {}
 ''')
     actual = map_referenced_callables(file.get_callables())
-    assert actual['void m()'] == ['void p()']
-    assert actual['void m(int)'] == ['void m()']
-    assert actual['void p()'] == []
-    expected = {'void m()': ['void p()'], 'void m(int)': ['void m()'], 'void p()': []}
+    assert actual['void B::m()'] == ['void B::p()']
+    assert actual['void B::m(int)'] == ['void B::m()']
+    assert actual['void B::p()'] == ['void d()']
+    assert actual['void d()'] == []
+    expected = {'void B::m()': ['void B::p()'], 'void B::m(int)': ['void B::m()'],
+                'void B::p()': ['void d()'], 'void d()': []}
     assert actual == expected
 
 
@@ -350,157 +274,6 @@ def test__scenario__select_entry_location_and_follow_references__data_model_is_c
     assert len(no_more_xref) == 0
 
 
-def build_callable():
-    return Callable(MagicMock(), MagicMock())
-
-
-def test__callable__check_whether_included__default_is_excluded():
-    callable = build_callable()
-    assert not callable.is_included()
-
-
-def test__callable__include_and_check_whether_included__return_included():
-    callable = build_callable()
-    callable.include()
-    assert callable.is_included()
-
-
-def test__callable__include_then_exclude_and_check_whether_included__return_included():
-    callable = build_callable()
-    callable.include()
-    callable.exclude()
-    assert not callable.is_included()
-
-
-def build_cursor(file, return_value, signature, kind):
-    cursor = MagicMock()
-    cursor.translation_unit.spelling = file
-    cursor.result_type.spelling = return_value
-    cursor.displayname = signature
-    cursor.kind = kind
-    return cursor
-
-
-def test__callable__export_included_parent_calling_included_child__export_correct_diagram():
-    index = MagicMock()
-    parent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
-    child = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
-    parent.referenced_usrs_.append(child.get_id())
-    index.lookup.return_value = child
-    parent.include()
-    child.include()
-    diagram = parent.export()
-    expected_diagram = '''@startuml
-
-foo.cpp -> bar.cpp: void baz()
-
-@enduml'''
-
-    assert diagram == expected_diagram
-
-
-def test__callable__export_included_parent_calling_excluded_child__export_correct_diagram():
-    index = MagicMock()
-    parent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
-    child = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
-    parent.referenced_usrs_.append(child.get_id())
-    index.lookup.return_value = child
-    parent.include()
-    child.exclude()
-    diagram = parent.export()
-    expected_diagram = '''@startuml
-
-
-@enduml'''
-
-    assert diagram == expected_diagram
-
-
-def test__callable__export_excluded_parent_calling_included_child__export_correct_diagram():
-    index = MagicMock()
-    parent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
-    child = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
-    parent.referenced_usrs_.append(child.get_id())
-    index.lookup.return_value = child
-    parent.exclude()
-    child.include()
-    diagram = parent.export()
-    expected_diagram = '''@startuml
-
- -> bar.cpp: void baz()
-
-@enduml'''
-
-    assert diagram == expected_diagram
-
-
-def test__callable__export_two_included_child_levels__export_correct_diagram():
-    index = MagicMock()
-    grandparent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
-    parent = Callable(build_cursor('bar.cpp', 'void', 'bar()', CursorKind.FUNCTION_DECL), index)
-    child = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
-    grandparent.referenced_usrs_.append(parent.get_id())
-    parent.referenced_usrs_.append(child.get_id())
-    index.lookup.side_effect = [parent, child]
-    grandparent.include()
-    parent.include()
-    child.include()
-    diagram = grandparent.export()
-    expected_diagram = '''@startuml
-
-foo.cpp -> bar.cpp: void bar()
-bar.cpp -> baz.cpp: void baz()
-
-@enduml'''
-
-    assert diagram == expected_diagram
-
-# # TODO(KNR): simplify diagram tests by factoring out common code
-
-
-def test__callable__export_grandparent_and_child_but_not_parent__export_correct_diagram():
-    index = MagicMock()
-    grandparent = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
-    parent = Callable(build_cursor('bar.cpp', 'void', 'bar()', CursorKind.FUNCTION_DECL), index)
-    child = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
-    grandparent.referenced_usrs_.append(parent.get_id())
-    parent.referenced_usrs_.append(child.get_id())
-    index.lookup.side_effect = [parent, child]
-    grandparent.include()
-    parent.exclude()
-    child.include()
-    diagram = grandparent.export()
-    expected_diagram = '''@startuml
-
-foo.cpp -> baz.cpp: void baz()
-
-@enduml'''
-
-    assert diagram == expected_diagram
-
-
-def test__callable__export_definition_loaded_over_declaration__export_correct_diagram(two_translation_units):
-    compilation_databases = CompilationDatabases()
-    index = Index(compilation_databases)
-    compilation_databases.add_compilation_database(two_translation_units)
-    cross_tu = os.path.join(two_translation_units, 'cross_tu_referencing_function.cpp')
-    dep_tu = os.path.join(two_translation_units, 'dependency.cpp')
-    index.load(dep_tu)
-    index.load(cross_tu)
-    parent = index.lookup('c:@F@b#')
-    child = index.lookup('c:@F@a#')
-    parent.include()
-    child.include()
-    diagram = parent.export()
-    expected_diagram = '''@startuml
-
-{} -> {}: void a()
-
-@enduml'''.format(cross_tu, dep_tu)
-
-    assert diagram == expected_diagram
-
-
 def test__callable__for_member_method__sender_is_class(directory):
     _, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
 class B {
@@ -518,60 +291,128 @@ private:
         assert callable.sender_ == 'B'
 
 
-def test__callable__export_of_member_method__sender_is_class(directory):
-    _, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
-class B {
-public:
-    void m() {
-        p();
-    }
+def test__index__load_definition_over_signature_spread_in_multiple_lines_in_h_and_cpp__load_correct_definition(directory):
+    generate_project(directory, {
+        os.path.join(directory, 'a.h'): '''
+                          #pragma once
+                          class A {
+                          public:
+                            void 
+                                a(
+                                    int 
+                                        test
+                                            =
+                                                0
+                                );
+                          }
+                          ''',
+        os.path.join(directory, 'a.cpp'): '''
+                          #include "a.h"
+                          #include "b.h"
+                          void 
+                            A::a(
+                                int 
+                                    test
+                                        =
+                                            0
+                                ) {
+                            B b;
+                            b.b()
+                          }
+                          ''',
+        os.path.join(directory, 'b.h'): '''
+                          #pragma once
+                          class B {
+                          public:
+                            void 
+                                b
+                                (
+                                );
+                          }
+                          ''',
+        os.path.join(directory, 'b.cpp'): '''
+                          #include "b.h"
+                          void 
+                            B::b
+                            (
+                            ) {}
+                          '''
+    })
 
-private:
-    void p() {}
-};
-''')
-    callables = file.get_callables()
-    for callable in callables:
-        callable.include()
+    db = CompilationDatabases()
+    db.add_compilation_database(directory)
+    index = Index(db)
+    index.set_common_path(directory + "/")
+    a_file = index.load(os.path.join(directory, 'a.cpp'))
 
-    diagram = callables[0].export()
-    expected_diagram = '''@startuml
-
-B -> B: void p()
-
-@enduml'''
-
-    assert diagram == expected_diagram
+    callable = a_file.get_callables()[0]
+    child_declaration = callable.get_referenced_callables()[0]
+    assert child_declaration.is_definition() is False
+    child_definition = index.load_definition(child_declaration)
+    assert child_definition.is_definition() is True
+    assert child_declaration.cursor_.get_usr() == child_definition.cursor_.get_usr()
 
 
-def test__callable__export_of_overloaded_member_method__sender_is_class(directory):
-    _, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
-class B {
-public:
-    void m() {
-        p();
-    }
-    void m(int i) {
-        m();
-    }
+def test__index__load_definition_over_signature_spread_in_multiple_lines_in_cpp__load_correct_definition(directory):
+    generate_project(directory, {
+        os.path.join(directory, 'a.h'): '''
+                          #pragma once
+                          class A {
+                          public:
+                            void a(int test=0);
+                          }
+                          ''',
+        os.path.join(directory, 'a.cpp'): '''
+                          #include "a.h"
+                          #include "b.h"
+                          void 
+                            A::a(
+                                int 
+                                    test 
+                                        =
+                                            0       
+                                ) {
+                            B b;
+                            b.b()
+                          }
+                          ''',
+        os.path.join(directory, 'b.h'): '''
+                          #pragma once
+                          class B {
+                          public:
+                            void b();
+                          }
+                          ''',
+        os.path.join(directory, 'b.cpp'): '''
+                          #include "b.h"
+                          void 
+                            B::b
+                            (
+                            ) {}
+                          '''
+    })
 
-private:
-    void p() {}
-};
-''')
-    callables = file.get_callables()
-    for callable in callables:
-        callable.include()
+    db = CompilationDatabases()
+    db.add_compilation_database(directory)
+    index = Index(db)
+    index.set_common_path(directory + "/")
+    a_file = index.load(os.path.join(directory, 'a.cpp'))
 
-    for callable in callables:
-        if 'p' not in callable.get_name():
-            referenced_callables = callable.get_referenced_callables()
-            assert len(referenced_callables) > 0
-    diagram = callables[0].export()
-    expected_diagram = '''@startuml
+    callable = a_file.get_callables()[0]
+    child_declaration = callable.get_referenced_callables()[0]
+    assert child_declaration.is_definition() is False
+    child_definition = index.load_definition(child_declaration)
+    assert child_definition.is_definition() is True
+    assert child_declaration.cursor_.get_usr() == child_definition.cursor_.get_usr()
 
-B -> B: void p()
 
-@enduml'''
+def test__index__set_common_path_to_none__still_works(directory):
+    file_name = 'one_function.cpp'
+    index, file = build_index_with_file(directory, file_name, 'void a() {}\n')
+    callable = file.get_callables()[0]
+    assert callable._get_sender() == '"' + file_name + '"'
+    index.set_common_path(None)
+    assert callable._get_sender() == '"' + os.path.join(directory, file_name) + '"'
 
-    assert diagram == expected_diagram
+
+

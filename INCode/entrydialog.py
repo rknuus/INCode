@@ -33,7 +33,6 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         self.entry_file_list_.setModel(self.entry_files_)
         self.entry_file_selection_ = self.entry_file_list_.selectionModel()
         self.entry_file_selection_.currentChanged.connect(self.onSelectEntryFile)
-        self.common_path = ''
 
     def onBrowse(self):
         path = QFileDialog.getOpenFileName(self, 'Open compilation database', '', '*.json')

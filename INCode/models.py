@@ -190,8 +190,8 @@ class Callable(object):
             return self.cursor_.semantic_parent.displayname
         return '{} is not supported'.format(self.cursor_.kind)
 
-    def _get_name(self, get_function_signature=False):
-        if self.cursor_.kind == CursorKind.FUNCTION_DECL or get_function_signature:
+    def _get_name(self, name_only=False):
+        if self.cursor_.kind == CursorKind.FUNCTION_DECL or name_only:
             return _get_function_signature(self.cursor_)
         elif self.cursor_.kind == CursorKind.CXX_METHOD:
             return _get_method_signature(self.cursor_)

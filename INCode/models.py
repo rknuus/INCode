@@ -5,6 +5,10 @@ from clang import cindex
 import re
 
 
+def _get_method_signature(cursor):
+    return '{} {}::{}'.format(cursor.result_type.spelling, cursor.semantic_parent.displayname, cursor.displayname)
+
+
 def _get_function_signature(cursor):
     return '{} {}'.format(cursor.result_type.spelling, cursor.displayname)
 
@@ -47,6 +51,7 @@ class Index(object):
         self.callable_table_ = {}
         self.file_table_ = {}
         self.compilation_databases_ = compilation_databases
+        self.common_path_ = ''
 
     def load(self, file):
         # TODO(KNR): assumes that the file name is unique
@@ -81,6 +86,14 @@ class Index(object):
         return ((cursor.get_usr() not in self.callable_table_ or
                  (cursor.is_definition() and len(self.callable_table_[cursor.get_usr()].referenced_usrs_) == 0))
                 and cursor.kind != CursorKind.CONSTRUCTOR)
+
+    def set_common_path(self, path):
+        if path is None:
+            path = ''
+        self.common_path_ = path
+
+    def get_common_path(self):
+        return self.common_path_
 
     # TODO(KNR): replace by read-only attribute
     def get_clang_index(self):
@@ -132,9 +145,9 @@ class Callable(object):
     def __init__(self, cursor, index, initialize=True):
         super(Callable, self).__init__()
         self.cursor_ = cursor
-        self.name_ = self._get_name(cursor)
-        self.sender_ = self._get_sender(cursor)
         self.index_ = index
+        self.name_ = self._get_name()
+        self.sender_ = self._get_sender()
         self.referenced_usrs_ = []
         if initialize:
             self.initialize()
@@ -172,19 +185,21 @@ class Callable(object):
     def _is_a_callable(cursor):
         return cursor.kind == CursorKind.FUNCTION_DECL or cursor.kind == CursorKind.CXX_METHOD
 
-    def _get_class(self, cursor):
-        if cursor.kind == CursorKind.CXX_METHOD:
-            return cursor.lexical_parent.displayname
-        return '{} is not supported'.format(cursor.kind)
+    def _get_class(self):
+        if self.cursor_.kind == CursorKind.CXX_METHOD:
+            return self.cursor_.semantic_parent.displayname
+        return '{} is not supported'.format(self.cursor_.kind)
 
-    def _get_name(self, cursor):
-        if cursor.kind == CursorKind.FUNCTION_DECL or cursor.kind == CursorKind.CXX_METHOD:
-            return _get_function_signature(cursor)
-        return '{} is not supported'.format(cursor.kind)
+    def _get_name(self, get_function_signature=False):
+        if self.cursor_.kind == CursorKind.FUNCTION_DECL or get_function_signature:
+            return _get_function_signature(self.cursor_)
+        elif self.cursor_.kind == CursorKind.CXX_METHOD:
+            return _get_method_signature(self.cursor_)
+        return '{} is not supported'.format(self.cursor_.kind)
 
-    def _get_sender(self, cursor):
-        if cursor.kind == CursorKind.FUNCTION_DECL:
-            return self.get_translation_unit()
-        elif cursor.kind == CursorKind.CXX_METHOD:
-            return self._get_class(cursor)
-        return '{} is not supported'.format(cursor.kind)
+    def _get_sender(self):
+        if self.cursor_.kind == CursorKind.FUNCTION_DECL:
+            return '"' + self.get_translation_unit().replace(self.index_.get_common_path(), '') + '"'
+        elif self.cursor_.kind == CursorKind.CXX_METHOD:
+            return self._get_class()
+        return '{} is not supported'.format(self.cursor_.kind)

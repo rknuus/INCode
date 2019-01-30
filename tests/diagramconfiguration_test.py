@@ -1,6 +1,7 @@
-from INCode.models import Callable
+from INCode.models import Callable, CompilationDatabases, Index
 from INCode.diagramconfiguration import DiagramConfiguration, CallableTreeItem
-from tests.test_environment_generation import *
+from tests.test_environment_generation import build_index_with_file, directory, \
+    generate_project, local_and_xref_dep, two_translation_units, two_files_with_classes, build_index
 from clang.cindex import CursorKind
 from unittest.mock import MagicMock, patch
 import os.path
@@ -38,18 +39,18 @@ def build_cursor(file, return_value, signature, kind):
 
 
 def test__callable_tree_item__export_included_parent_calling_included_child__export_correct_diagram():
-    index = MagicMock()
+    index = build_index()
     parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
     parent = CallableTreeItem(parent_callable)
     child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.return_value = child_callable
+    index.lookup.side_effect = [parent_callable, parent_callable, child_callable, child_callable]
     parent.include()
     child.include()
     diagram = parent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> bar.cpp: void baz()
+"foo.cpp" -> "bar.cpp": void baz()
 
 @enduml'''
 
@@ -57,7 +58,7 @@ foo.cpp -> bar.cpp: void baz()
 
 
 def test__callable_tree_item__export_included_parent_calling_excluded_child__export_correct_diagram():
-    index = MagicMock()
+    index = build_index()
     parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
     parent = CallableTreeItem(parent_callable)
     child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
@@ -75,7 +76,7 @@ def test__callable_tree_item__export_included_parent_calling_excluded_child__exp
 
 
 def test__callable_tree_item__export_excluded_parent_calling_included_child__export_correct_diagram():
-    index = MagicMock()
+    index = build_index()
     parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
     parent = CallableTreeItem(parent_callable)
     child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
@@ -86,7 +87,7 @@ def test__callable_tree_item__export_excluded_parent_calling_included_child__exp
     diagram = parent.export()
     expected_diagram = '''@startuml
 
- -> bar.cpp: void baz()
+ -> "bar.cpp": void baz()
 
 @enduml'''
 
@@ -94,22 +95,22 @@ def test__callable_tree_item__export_excluded_parent_calling_included_child__exp
 
 
 def test__callable_tree_item__export_two_included_child_levels__export_correct_diagram():
-    index = MagicMock()
+    index = build_index()
     grandparent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
     grandparent = CallableTreeItem(grandparent_callable)
     parent_callable = Callable(build_cursor('bar.cpp', 'void', 'bar()', CursorKind.FUNCTION_DECL), index)
     parent = CallableTreeItem(parent_callable, grandparent)
     child_callable = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.side_effect = [grandparent_callable, parent_callable, child_callable]
+    index.lookup.side_effect = [grandparent_callable, grandparent_callable, parent_callable, parent_callable, child_callable, child_callable]
     grandparent.include()
     parent.include()
     child.include()
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> bar.cpp: void bar()
-bar.cpp -> baz.cpp: void baz()
+"foo.cpp" -> "bar.cpp": void bar()
+"bar.cpp" -> "baz.cpp": void baz()
 
 @enduml'''
 
@@ -119,28 +120,28 @@ bar.cpp -> baz.cpp: void baz()
 
 
 def test__callable_tree_item__export_grandparent_and_child_but_not_parent__export_correct_diagram():
-    index = MagicMock()
+    index = build_index()
     grandparent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
     grandparent = CallableTreeItem(grandparent_callable)
     parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
     parent = CallableTreeItem(parent_callable, grandparent)
     child_callable = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.side_effect = [grandparent_callable, parent_callable, child_callable]
+    index.lookup.side_effect = [grandparent_callable, grandparent_callable, parent_callable, parent_callable, child_callable, child_callable]
     grandparent.include()
     parent.exclude()
     child.include()
     diagram = grandparent.export()
     expected_diagram = '''@startuml
 
-foo.cpp -> baz.cpp: void baz()
+"foo.cpp" -> "baz.cpp": void baz()
 
 @enduml'''
 
     assert diagram == expected_diagram
 
 
-def test__callable_tree_item__export_definition_loaded_over_declaration__export_correct_diagram(two_translation_units):
+def test__callable_tree_item__export_function_definition_loaded_over_declaration__export_correct_diagram(two_translation_units):
     compilation_databases = CompilationDatabases()
     index = Index(compilation_databases)
     compilation_databases.add_compilation_database(two_translation_units)
@@ -166,6 +167,32 @@ def test__callable_tree_item__export_definition_loaded_over_declaration__export_
     assert diagram == expected_diagram
 
 
+def test__callable_tree_item__export_method_definition_loaded_over_declaration__export_correct_diagram(two_files_with_classes):
+    compilation_databases = CompilationDatabases()
+    index = Index(compilation_databases)
+    compilation_databases.add_compilation_database(two_files_with_classes)
+    a_tu = os.path.join(two_files_with_classes, 'a.cpp')
+    b_tu = os.path.join(two_files_with_classes, 'b.cpp')
+    index.load(a_tu)
+    index.load(b_tu)
+    parent_callable = index.lookup('c:@S@A@F@a#')
+    child_callable = index.lookup('c:@S@B@F@b#')
+
+    parent = CallableTreeItem(parent_callable)
+    child = CallableTreeItem(child_callable, parent)
+    parent.include()
+    child.include()
+
+    diagram = parent.export()
+    expected_diagram = '''@startuml
+
+A -> B: void b()
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
 def test__callable__export_of_recursive_method__export_correct_diagram(directory):
     index, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
 class B {
@@ -179,7 +206,7 @@ public:
 
 private:
     void p() {
-        p()
+        p();
     }
 };
 ''')
@@ -190,7 +217,7 @@ private:
             assert len(referenced_callables) > 0
 
     export_callable = callables[2]
-    assert export_callable.get_name() == "void p()"
+    assert export_callable.get_name() == "void B::p()"
     export_callable_tree_item = CallableTreeItem(export_callable)
     export_callable_tree_item.include()
 
@@ -258,7 +285,7 @@ void func() {
 B -> B: void p()
 B -> "{0}": void func()
 
-@enduml'''.format(os.path.join(directory, file_name))
+@enduml'''.format(file_name)
 
     assert diagram == expected_diagram
 
@@ -291,20 +318,14 @@ def test__diagram_configuration__reveal_children_of_item_without_references__has
     diagram_configuration = setup_diagram_configuration(directory, '''
 class B {
 public:
-    void a() {
-        b();
-    }
-
-    void b() {
-    }
+    void a() {}
 };
 ''')
 
-    child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
-    diagram_configuration.tree_.setCurrentItem(child_tree_item)
+    diagram_configuration.tree_.setCurrentItem(diagram_configuration.entry_point_item_)
 
-    diagram_configuration.revealChildren()
-    assert child_tree_item.childCount() == 0
+    diagram_configuration.reveal_children()
+    assert diagram_configuration.entry_point_item_.childCount() == 0
 
 
 def test__diagram_configuration__reveal_children__has_children_after_reveal(directory):
@@ -313,7 +334,7 @@ def test__diagram_configuration__reveal_children__has_children_after_reveal(dire
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
     diagram_configuration.tree_.setCurrentItem(child_tree_item)
 
-    diagram_configuration.revealChildren()
+    diagram_configuration.reveal_children()
     assert child_tree_item.childCount() > 0
 
 
@@ -323,28 +344,16 @@ def test__diagram_configuration__reveal_children__no_duplicates_after_multiple_r
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
     diagram_configuration.tree_.setCurrentItem(child_tree_item)
 
-    diagram_configuration.revealChildren()
+    diagram_configuration.reveal_children()
     count = child_tree_item.childCount()
-    diagram_configuration.revealChildren()
+    diagram_configuration.reveal_children()
 
     assert child_tree_item.childCount() == count
 
 
-def test__diagram_configuration__reveal_already_revealed_item__no_action(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
-
-    entry_point_item = diagram_configuration.entry_point_item_
-    diagram_configuration.tree_.setCurrentItem(entry_point_item)
-
-    with patch.object(entry_point_item, 'get_callable') as mock:
-        diagram_configuration.revealChildren()
-
-    mock.assert_not_called()
-
-
 def test__diagram_configuration__reveal_if_no_item_selected__no_action(directory):
     diagram_configuration = setup_diagram_configuration(directory)
-    diagram_configuration.revealChildren()
+    diagram_configuration.reveal_children()
 
     child_items = diagram_configuration.entry_point_item_.referenced_items_
     for child_item in child_items:
@@ -356,7 +365,7 @@ def test__diagram_configuration__reveal_children__check_if_tree_expands(director
 
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
     diagram_configuration.tree_.setCurrentItem(child_tree_item)
-    diagram_configuration.revealChildren()
+    diagram_configuration.reveal_children()
 
     for child_child_tree_item in child_tree_item.referenced_items_:
         assert child_child_tree_item.isExpanded()

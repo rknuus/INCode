@@ -1,9 +1,10 @@
 # Copyright (C) 2018 R. Knuus
 
 from clang.cindex import CursorKind
-from INCode.models import Callable, CompilationDatabases, File, Index
+from INCode.models import CompilationDatabases, Index
 from unittest.mock import MagicMock
-from tests.test_environment_generation import *
+from tests.test_environment_generation import build_index_with_file, directory, \
+    generate_project, local_and_xref_dep, two_translation_units
 import os.path
 
 
@@ -105,7 +106,7 @@ def test__callable__get_referenced_callables_for_method_calling_method__returns_
     _, file = build_index_with_file(directory, 'method_referencing_method.cpp',
                                     'class C {\npublic:\nvoid a(); void b() { a(); }\n};\n')
     actual = map_referenced_callables(file.get_callables())
-    expected = {'void a()': [], 'void b()': ['void a()']}
+    expected = {'void C::a()': [], 'void C::b()': ['void C::a()']}
     assert actual == expected
 
 
@@ -113,12 +114,14 @@ def test__callable__get_referenced_callables_for_overloaded_method_calling_metho
     _, file = build_index_with_file(directory, 'overloaded_method_referencing_method.cpp',
                                     'class C {\npublic:\nvoid a() {}\nvoid a(int i) { b(); }\nvoid b() {}\n};\n')
     actual = map_referenced_callables(file.get_callables())
-    expected = {'void a()': [], 'void a(int)': ['void b()'], 'void b()': []}
+    expected = {'void C::a()': [], 'void C::a(int)': ['void C::b()'], 'void C::b()': []}
     assert actual == expected
 
 
 def test__index__ensure_registered_callable_with_references_not_overwritten(directory):
     _, file = build_index_with_file(directory, 'bug.cpp', '''
+void d();
+
 class B {
 public:
     void m() {
@@ -127,14 +130,20 @@ public:
     void m(int i) {
         m();
     }
-    void p() {}
+    void p() {
+        d();
+    }
 };
+
+void d() {}
 ''')
     actual = map_referenced_callables(file.get_callables())
-    assert actual['void m()'] == ['void p()']
-    assert actual['void m(int)'] == ['void m()']
-    assert actual['void p()'] == []
-    expected = {'void m()': ['void p()'], 'void m(int)': ['void m()'], 'void p()': []}
+    assert actual['void B::m()'] == ['void B::p()']
+    assert actual['void B::m(int)'] == ['void B::m()']
+    assert actual['void B::p()'] == ['void d()']
+    assert actual['void d()'] == []
+    expected = {'void B::m()': ['void B::p()'], 'void B::m(int)': ['void B::m()'],
+                'void B::p()': ['void d()'], 'void d()': []}
     assert actual == expected
 
 
@@ -280,3 +289,130 @@ private:
     callables = file.get_callables()
     for callable in callables:
         assert callable.sender_ == 'B'
+
+
+def test__index__load_definition_over_signature_spread_in_multiple_lines_in_h_and_cpp__load_correct_definition(directory):
+    generate_project(directory, {
+        os.path.join(directory, 'a.h'): '''
+                          #pragma once
+                          class A {
+                          public:
+                            void 
+                                a(
+                                    int 
+                                        test
+                                            =
+                                                0
+                                );
+                          }
+                          ''',
+        os.path.join(directory, 'a.cpp'): '''
+                          #include "a.h"
+                          #include "b.h"
+                          void 
+                            A::a(
+                                int 
+                                    test
+                                        =
+                                            0
+                                ) {
+                            B b;
+                            b.b()
+                          }
+                          ''',
+        os.path.join(directory, 'b.h'): '''
+                          #pragma once
+                          class B {
+                          public:
+                            void 
+                                b
+                                (
+                                );
+                          }
+                          ''',
+        os.path.join(directory, 'b.cpp'): '''
+                          #include "b.h"
+                          void 
+                            B::b
+                            (
+                            ) {}
+                          '''
+    })
+
+    db = CompilationDatabases()
+    db.add_compilation_database(directory)
+    index = Index(db)
+    index.set_common_path(directory + "/")
+    a_file = index.load(os.path.join(directory, 'a.cpp'))
+
+    callable = a_file.get_callables()[0]
+    child_declaration = callable.get_referenced_callables()[0]
+    assert child_declaration.is_definition() is False
+    child_definition = index.load_definition(child_declaration)
+    assert child_definition.is_definition() is True
+    assert child_declaration.cursor_.get_usr() == child_definition.cursor_.get_usr()
+
+
+def test__index__load_definition_over_signature_spread_in_multiple_lines_in_cpp__load_correct_definition(directory):
+    generate_project(directory, {
+        os.path.join(directory, 'a.h'): '''
+                          #pragma once
+                          class A {
+                          public:
+                            void a(int test=0);
+                          }
+                          ''',
+        os.path.join(directory, 'a.cpp'): '''
+                          #include "a.h"
+                          #include "b.h"
+                          void 
+                            A::a(
+                                int 
+                                    test 
+                                        =
+                                            0       
+                                ) {
+                            B b;
+                            b.b()
+                          }
+                          ''',
+        os.path.join(directory, 'b.h'): '''
+                          #pragma once
+                          class B {
+                          public:
+                            void b();
+                          }
+                          ''',
+        os.path.join(directory, 'b.cpp'): '''
+                          #include "b.h"
+                          void 
+                            B::b
+                            (
+                            ) {}
+                          '''
+    })
+
+    db = CompilationDatabases()
+    db.add_compilation_database(directory)
+    index = Index(db)
+    index.set_common_path(directory + "/")
+    a_file = index.load(os.path.join(directory, 'a.cpp'))
+
+    callable = a_file.get_callables()[0]
+    child_declaration = callable.get_referenced_callables()[0]
+    assert child_declaration.is_definition() is False
+    child_definition = index.load_definition(child_declaration)
+    assert child_definition.is_definition() is True
+    assert child_declaration.cursor_.get_usr() == child_definition.cursor_.get_usr()
+
+
+def test__index__set_common_path_to_none__still_works(directory):
+    file_name = 'one_function.cpp'
+    index, file = build_index_with_file(directory, file_name, 'void a() {}\n')
+    callable = file.get_callables()[0]
+    assert callable._get_sender() == '"' + file_name + '"'
+    index.set_common_path(None)
+    assert callable._get_sender() == '"' + os.path.join(directory, file_name) + '"'
+
+
+

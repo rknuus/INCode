@@ -16,14 +16,11 @@ class CallableTreeItem(QTreeWidgetItem):
     def __init__(self, callable, parent=None):
         super(QTreeWidgetItem, self).__init__(parent)
 
-        self.common_path_ = ''
         if isinstance(parent, CallableTreeItem):
             parent.referenced_items_.append(self)
-            self.common_path_ = parent.common_path_
 
         self.index_ = callable.index_
         self.callable_id_ = callable.get_id()
-        self.sender_ = callable.sender_
         self.referenced_items_ = []
         self.setText(TreeColumns.FIRST_COLUMN, callable.get_name())
         self.setFlags(self.flags() | Qt.ItemIsUserCheckable)
@@ -47,26 +44,21 @@ class CallableTreeItem(QTreeWidgetItem):
 
     def export(self):
         callable = self.get_callable()
-        sender = callable.get_translation_unit() if self.is_included() else ''
+        sender = callable.sender_ if self.is_included() else ''
         return '@startuml\n\n{}\n@enduml'.format(self.export_relations_(sender))
 
     def export_relations_(self, parent_sender):
+        callable = self.get_callable()
         diagram = ''
         for child_item in self.referenced_items_:
             child_callable = child_item.get_callable()
-            sender = self.get_sender() if self.is_included() else parent_sender
+            sender = callable.sender_ if self.is_included() else parent_sender
             if child_item.is_included():
                 diagram += '{} -> {}: {}\n'.format(sender,
-                                                   child_item.get_sender(),
-                                                   child_callable.get_name())
+                                                   child_callable.sender_,
+                                                   child_callable._get_name(True))
             diagram += child_item.export_relations_(sender)
         return diagram
-
-    def get_sender(self):
-        if os.path.isabs(self.sender_):
-            self.sender_ = '"' + self.sender_.replace(self.common_path_, '') + '"'
-        return self.sender_
-
 
 
 class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
@@ -82,7 +74,6 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         # TODO(KNR): to store the root item as member of this class is a hack, the tree should somehow provide
         # this information
         self.entry_point_item_ = CallableTreeItem(entry_point, self.tree_)
-        self.entry_point_item_.common_path_ = entry_point_item.common_path_
         for child in entry_point.get_referenced_callables():
             CallableTreeItem(child, self.entry_point_item_)
 
@@ -92,11 +83,10 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         self.exitAction_.triggered.connect(QApplication.instance().quit)
 
-        self.revealChildrenAction_.triggered.connect(self.revealChildren)
+        self.revealChildrenAction_.triggered.connect(self.reveal_children)
         self.exportAction_.triggered.connect(self.export)
 
-    # TODO(KNR): use lower case with underscores for method and variable names
-    def revealChildren(self):
+    def reveal_children(self):
         current_item = self.tree_.currentItem()
         if not current_item or current_item.childCount() > 0:
             return

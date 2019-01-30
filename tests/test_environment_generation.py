@@ -1,7 +1,9 @@
 import pytest
 import os.path
 import tempfile
+from unittest.mock import MagicMock
 from INCode.models import CompilationDatabases, Index
+
 
 def generate_project(directory, files):
     for file, content in files.items():
@@ -53,6 +55,40 @@ def two_translation_units():
 
 
 @pytest.fixture(scope='module')
+def two_files_with_classes():
+    with tempfile.TemporaryDirectory('two_files_with_classes') as directory:
+        generate_project(directory, {
+            os.path.join(directory, 'a.h'): '''
+                      #pragma once
+                      class A {
+                      public:
+                        void a();
+                      }
+                      ''',
+            os.path.join(directory, 'a.cpp'): '''
+                      #include "a.h"
+                      #include "b.h"
+                      void A::a() {
+                        B b;
+                        b.b()
+                      }
+                      ''',
+            os.path.join(directory, 'b.h'): '''
+                      #pragma once
+                      class B {
+                      public:
+                        void b();
+                      }
+                      ''',
+            os.path.join(directory, 'b.cpp'): '''
+                      #include "b.h"
+                      void B::b() {}
+                      '''
+        })
+        yield directory
+
+
+@pytest.fixture(scope='module')
 def local_and_xref_dep():
     with tempfile.TemporaryDirectory('local_and_xref_dep') as directory:
         generate_project(directory, {
@@ -77,11 +113,18 @@ def local_and_xref_dep():
         yield directory
 
 
+def build_index(common_path=''):
+    index = MagicMock()
+    index.get_common_path.return_value = common_path
+    return index
+
+
 def build_index_with_file(directory, file_name='empty.cpp', file_content=''):
     file_path = os.path.join(directory, file_name)
     generate_project(directory, {file_path: file_content})
     db = CompilationDatabases()
     db.add_compilation_database(directory)
     index = Index(db)
+    index.set_common_path(directory+"/")
     file = index.load(file_path)
     return index, file

@@ -51,7 +51,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
             for file in file_paths:
                 item = QStandardItem(file)
                 self.entry_files_.appendRow(item)
-            self.common_path = os.path.commonprefix(file_paths)
+            self.index_.set_common_path(os.path.commonprefix(file_paths))
 
     def onSelectEntryFile(self, current, previous):
         if not current:
@@ -71,7 +71,6 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         current = self.entry_point_list_.selectionModel().selectedIndexes()
         if current and len(current) > 0:
             entry_point = self.entry_points_.item(current[0].row(), 0)
-            entry_point.common_path_ = self.common_path
             self.hide()
             self.window_ = DiagramConfiguration(entry_point)
             self.window_.show()

@@ -8,7 +8,7 @@ import os.path
 
 
 def build_callable_tree_item():
-    return CallableTreeItem(Callable(MagicMock(), MagicMock()))
+    return CallableTreeItem(Callable(MagicMock()))
 
 
 def test__callable_tree_item__check_whether_included__default_is_excluded():
@@ -40,11 +40,12 @@ def build_cursor(file, return_value, signature, kind):
 
 def test__callable_tree_item__export_included_parent_calling_included_child__export_correct_diagram():
     index = build_index()
-    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL))
+    index.register(parent_callable)
     parent = CallableTreeItem(parent_callable)
-    child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
+    child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL))
+    index.register(child_callable)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.side_effect = [parent_callable, parent_callable, child_callable, child_callable]
     parent.include()
     child.include()
     diagram = parent.export()
@@ -59,11 +60,12 @@ def test__callable_tree_item__export_included_parent_calling_included_child__exp
 
 def test__callable_tree_item__export_included_parent_calling_excluded_child__export_correct_diagram():
     index = build_index()
-    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL))
+    index.register(parent_callable)
     parent = CallableTreeItem(parent_callable)
-    child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
+    child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL))
+    index.register(child_callable)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.return_value = child_callable
     parent.include()
     child.exclude()
     diagram = parent.export()
@@ -77,11 +79,12 @@ def test__callable_tree_item__export_included_parent_calling_excluded_child__exp
 
 def test__callable_tree_item__export_excluded_parent_calling_included_child__export_correct_diagram():
     index = build_index()
-    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL))
+    index.register(parent_callable)
     parent = CallableTreeItem(parent_callable)
-    child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
+    child_callable = Callable(build_cursor('bar.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL))
+    index.register(child_callable)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.return_value = child_callable
     parent.exclude()
     child.include()
     diagram = parent.export()
@@ -96,13 +99,16 @@ def test__callable_tree_item__export_excluded_parent_calling_included_child__exp
 
 def test__callable_tree_item__export_two_included_child_levels__export_correct_diagram():
     index = build_index()
-    grandparent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    grandparent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL))
+    index.register(grandparent_callable)
     grandparent = CallableTreeItem(grandparent_callable)
-    parent_callable = Callable(build_cursor('bar.cpp', 'void', 'bar()', CursorKind.FUNCTION_DECL), index)
+    parent_callable = Callable(build_cursor('bar.cpp', 'void', 'bar()', CursorKind.FUNCTION_DECL))
+    index.register(parent_callable)
     parent = CallableTreeItem(parent_callable, grandparent)
-    child_callable = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
+    child_callable = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL))
+    index.register(child_callable)
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.side_effect = [grandparent_callable, grandparent_callable, parent_callable, parent_callable, child_callable, child_callable]
+
     grandparent.include()
     parent.include()
     child.include()
@@ -116,18 +122,22 @@ def test__callable_tree_item__export_two_included_child_levels__export_correct_d
 
     assert diagram == expected_diagram
 
+
 # # TODO(KNR): simplify diagram tests by factoring out common code
 
 
 def test__callable_tree_item__export_grandparent_and_child_but_not_parent__export_correct_diagram():
     index = build_index()
-    grandparent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    grandparent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL))
+    index.register(grandparent_callable)
     grandparent = CallableTreeItem(grandparent_callable)
-    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL), index)
+    parent_callable = Callable(build_cursor('foo.cpp', 'void', 'foo()', CursorKind.FUNCTION_DECL))
+    index.register(parent_callable)
     parent = CallableTreeItem(parent_callable, grandparent)
-    child_callable = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL), index)
+    child_callable = Callable(build_cursor('baz.cpp', 'void', 'baz()', CursorKind.FUNCTION_DECL))
+    index.register(child_callable)
+
     child = CallableTreeItem(child_callable, parent)
-    index.lookup.side_effect = [grandparent_callable, grandparent_callable, parent_callable, parent_callable, child_callable, child_callable]
     grandparent.include()
     parent.exclude()
     child.include()
@@ -141,7 +151,8 @@ def test__callable_tree_item__export_grandparent_and_child_but_not_parent__expor
     assert diagram == expected_diagram
 
 
-def test__callable_tree_item__export_function_definition_loaded_over_declaration__export_correct_diagram(two_translation_units):
+def test__callable_tree_item__export_function_definition_loaded_over_declaration__export_correct_diagram(
+        two_translation_units):
     compilation_databases = CompilationDatabases()
     index = Index(compilation_databases)
     compilation_databases.add_compilation_database(two_translation_units)
@@ -167,7 +178,8 @@ def test__callable_tree_item__export_function_definition_loaded_over_declaration
     assert diagram == expected_diagram
 
 
-def test__callable_tree_item__export_method_definition_loaded_over_declaration__export_correct_diagram(two_files_with_classes):
+def test__callable_tree_item__export_method_definition_loaded_over_declaration__export_correct_diagram(
+        two_files_with_classes):
     compilation_databases = CompilationDatabases()
     index = Index(compilation_databases)
     compilation_databases.add_compilation_database(two_files_with_classes)
@@ -194,7 +206,7 @@ A -> B: void b()
 
 
 def test__callable__export_of_recursive_method__export_correct_diagram(directory):
-    index, file = build_index_with_file(directory, 'identify_local_function.cpp', '''
+    file = build_index_with_file(directory, 'identify_local_function.cpp', '''
 class B {
 public:
     void m() {
@@ -241,7 +253,7 @@ B -> B: void p()
 
 def test__callable__export_of_member_method_and_function__export_correct_diagram(directory):
     file_name = 'identify_local_function.cpp'
-    index, file = build_index_with_file(directory, file_name, '''
+    file = build_index_with_file(directory, file_name, '''
 void func();
     
 class B {
@@ -306,7 +318,7 @@ public:
     void d() {}
 };
 '''):
-    index, file = build_index_with_file(directory, 'identify_local_function.cpp', code)
+    file = build_index_with_file(directory, 'identify_local_function.cpp', code)
     export_callable = file.get_callables()[0]
     entry_point = MagicMock()
     entry_point.get_callable.return_value = export_callable
@@ -383,3 +395,38 @@ def test__diagram_configuration__export_calls_entry_point_export(directory):
         diagram_configuration.export()
 
     mock.assert_called_once_with()
+
+
+def test__callable_tree_item__export_function_with_constructor__export_correct_diagram(directory):
+    file_name = "function_with_constructor.cpp"
+    file = build_index_with_file(directory, file_name, '''
+    void bar();
+    
+    class A {
+        A() {}
+        
+        void foo() {}
+    }
+    
+    void bar() {
+        A a;
+        a.foo();
+    }
+    ''')
+
+    callable = file.get_callables()[0]
+    callable_tree_item = CallableTreeItem(callable)
+    callable_tree_item.include()
+
+    for child_callable in callable.get_referenced_callables():
+        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+        child_callable_tree_item.include()
+
+    diagram = callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> A: void foo()
+
+@enduml'''.format(file_name)
+
+    assert diagram == expected_diagram

@@ -42,16 +42,24 @@ class CompilationDatabases(object):
         return None
 
 
-class Index(object):
-    '''Represents the index of all callables and processes the compilation database.'''
+class Borg:
+    __shared_state = {}
 
-    def __init__(self, compilation_databases):
-        super(Index, self).__init__()
-        self.index_ = cindex.Index.create()
-        self.callable_table_ = {}
-        self.file_table_ = {}
-        self.compilation_databases_ = compilation_databases
-        self.common_path_ = ''
+    def __init__(self):
+        self.__dict__ = self.__shared_state
+
+
+class Index(Borg):
+    '''Represents the index of all callables and processes the compilation database as a singleton.'''
+
+    def __init__(self, compilation_databases=None):
+        Borg.__init__(self)
+        if compilation_databases is not None:
+            self.index_ = cindex.Index.create()
+            self.callable_table_ = {}
+            self.file_table_ = {}
+            self.compilation_databases_ = compilation_databases
+            self.common_path_ = ''
 
     def load(self, file):
         # TODO(KNR): assumes that the file name is unique
@@ -60,7 +68,7 @@ class Index(object):
         command = self.compilation_databases_.get_command(file)
         if not command:
             raise ValueError('No compilation command found for {}'.format(file))
-        f = File(file, self, command)
+        f = File(file, command)
         self.file_table_[file] = f
         return f
 
@@ -118,34 +126,33 @@ class Index(object):
 class File(object):
     '''Represents a file and provides a list of callables.'''
 
-    def __init__(self, file, index, command):
+    def __init__(self, file, command):
         super(File, self).__init__()
-        self.index_ = index
         self.callable_usrs_ = []
         try:
-            self.tu_ = self.index_.get_clang_index().parse(None, command)
+            index = Index()
+            self.tu_ = index.get_clang_index().parse(None, command)
 
             for cursor in self.tu_.cursor.walk_preorder():
-                if (cursor.location.file is not None and Callable._is_a_callable(cursor)
-                        and self.index_.is_interesting(cursor)):
-                    callable = Callable(cursor, self.index_)
+                if (cursor.location.file is not None and cursor.location.file.name == file
+                        and Callable._is_a_callable(cursor) and index.is_interesting(cursor)):
+                    callable = Callable(cursor)
                     if callable.get_id() not in self.callable_usrs_:
                         self.callable_usrs_.append(callable.get_id())
-                    self.index_.register(callable)
+                    index.register(callable)
         except TranslationUnitLoadError:
             raise ValueError('Cannot parse file {}'.format(file))
 
     def get_callables(self):
-        return [self.index_.lookup(usr) for usr in self.callable_usrs_]
+        return [Index().lookup(usr) for usr in self.callable_usrs_]
 
 
 class Callable(object):
     '''Represents a callable and provides a list of referenced callables.'''
 
-    def __init__(self, cursor, index, initialize=True):
+    def __init__(self, cursor, initialize=True):
         super(Callable, self).__init__()
         self.cursor_ = cursor
-        self.index_ = index
         self.name_ = self._get_name()
         self.sender_ = self._get_sender()
         self.referenced_usrs_ = []
@@ -166,16 +173,16 @@ class Callable(object):
         return self.cursor_.is_definition()
 
     def get_referenced_callables(self):
-        return [self.index_.lookup(usr) for usr in self.referenced_usrs_]
+        return [Index().lookup(usr) for usr in self.referenced_usrs_]
 
     def initialize(self):
         for cursor in self.cursor_.walk_preorder():
-            if Callable._is_a_call(cursor) and self.index_.is_interesting(cursor):
+            if Callable._is_a_call(cursor) and Index().is_interesting(cursor):
                 definition = cursor.referenced
-                callable = Callable(definition, self.index_, False)
+                callable = Callable(definition, False)
                 if callable.get_id() not in self.referenced_usrs_ and definition.kind != CursorKind.CONSTRUCTOR:
                     self.referenced_usrs_.append(callable.get_id())
-                self.index_.register(callable)
+                Index().register(callable)
 
     @staticmethod
     def _is_a_call(cursor):
@@ -190,16 +197,21 @@ class Callable(object):
             return self.cursor_.semantic_parent.displayname
         return '{} is not supported'.format(self.cursor_.kind)
 
-    def _get_name(self, name_only=False):
-        if self.cursor_.kind == CursorKind.FUNCTION_DECL or name_only:
+    def _get_name(self):
+        if self.cursor_.kind == CursorKind.FUNCTION_DECL:
             return _get_function_signature(self.cursor_)
         elif self.cursor_.kind == CursorKind.CXX_METHOD:
             return _get_method_signature(self.cursor_)
         return '{} is not supported'.format(self.cursor_.kind)
 
+    def _get_diagram_name(self):
+        if self.cursor_.kind == CursorKind.FUNCTION_DECL or self.cursor_.kind == CursorKind.CXX_METHOD:
+            return _get_function_signature(self.cursor_)
+        return '{} is not supported'.format(self.cursor_.kind)
+
     def _get_sender(self):
         if self.cursor_.kind == CursorKind.FUNCTION_DECL:
-            return '"' + self.get_translation_unit().replace(self.index_.get_common_path(), '') + '"'
+            return '"' + self.get_translation_unit().replace(Index().get_common_path(), '') + '"'
         elif self.cursor_.kind == CursorKind.CXX_METHOD:
             return self._get_class()
         return '{} is not supported'.format(self.cursor_.kind)

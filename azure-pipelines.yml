@@ -1,0 +1,27 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+- feature/*
+
+pool:
+  vmImage: 'Ubuntu-16.04'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.6'
+
+- script: |   
+   python -m pip install --upgrade pip  
+   pip install -e INCode
+  displayName: 'Install dependencies'
+
+
+- script: |   
+   cd INCode
+   LD_LIBRARY_PATH=/usr/lib/llvm-6.0/lib pytest --junitxml=../reports/INCode.xml  
+  displayName: 'Run tests'

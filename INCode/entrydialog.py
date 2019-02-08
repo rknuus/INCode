@@ -10,10 +10,11 @@ import os
 
 class CallableItem(QStandardItem):
     def __init__(self, callable):
-        super(QStandardItem, self).__init__(callable.get_name())
+        super(QStandardItem, self).__init__(callable.name)
         self.callable_ = callable
 
-    def get_callable(self):
+    @property
+    def callable(self):
         return self.callable_
 
 
@@ -49,7 +50,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
             for file in file_paths:
                 item = QStandardItem(file)
                 self.entry_files_.appendRow(item)
-            index.set_common_path(os.path.commonprefix(file_paths))
+            index.common_path = os.path.commonprefix(file_paths)
 
     def onSelectEntryFile(self, current, previous):
         if not current:
@@ -57,7 +58,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         entry_file_path = self.entry_files_.item(current.row(), 0).text()
         entry_file = Index().load(entry_file_path)
         self.entry_points_.clear()
-        for callable in entry_file.get_callables():
+        for callable in entry_file.callables:
             item = CallableItem(callable)
             self.entry_points_.appendRow(item)
         self.entry_point_list_.setModel(self.entry_points_)

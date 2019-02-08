@@ -114,7 +114,7 @@ def local_and_xref_dep():
 
 
 def build_index(db=CompilationDatabases(), common_path=''):
-    Index(db).set_common_path(common_path)
+    Index(db).common_path = common_path
     return Index()
 
 

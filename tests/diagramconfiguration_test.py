@@ -3,26 +3,31 @@ from INCode.diagramconfiguration import DiagramConfiguration, CallableTreeItem
 from tests.test_environment_generation import build_index_with_file, directory, \
     generate_project, local_and_xref_dep, two_translation_units, two_files_with_classes, build_index
 from clang.cindex import CursorKind
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 import os.path
 
 
 def build_callable_tree_item():
-    return CallableTreeItem(Callable(MagicMock()))
+    cursor = MagicMock()
+    cursor.kind = CursorKind.FUNCTION_DECL
+    return CallableTreeItem(Callable(cursor))
 
 
 def test__callable_tree_item__check_whether_included__default_is_excluded():
+    build_index()
     callable_tree_item = build_callable_tree_item()
     assert not callable_tree_item.is_included()
 
 
 def test__callable_tree_item__include_and_check_whether_included__return_included():
+    build_index()
     callable_tree_item = build_callable_tree_item()
     callable_tree_item.include()
     assert callable_tree_item.is_included()
 
 
 def test__callable_tree_item__include_then_exclude_and_check_whether_included__return_included():
+    build_index()
     callable_tree_item = build_callable_tree_item()
     callable_tree_item.include()
     callable_tree_item.exclude()
@@ -222,21 +227,20 @@ private:
     }
 };
 ''')
-    callables = file.get_callables()
+    callables = file.callables
     for callable in callables:
-        if 'p' not in callable.get_name():
-            referenced_callables = callable.get_referenced_callables()
-            assert len(referenced_callables) > 0
+        if 'p' not in callable.name:
+            assert len(callable.referenced_callables) > 0
 
     export_callable = callables[2]
-    assert export_callable.get_name() == "void B::p()"
+    assert export_callable.name == "void B::p()"
     export_callable_tree_item = CallableTreeItem(export_callable)
     export_callable_tree_item.include()
 
-    for callable in export_callable.get_referenced_callables():
+    for callable in export_callable.referenced_callables:
         callable_tree_item = CallableTreeItem(callable, export_callable_tree_item)
         callable_tree_item.include()
-        for child_callable in callable.get_referenced_callables():
+        for child_callable in callable.referenced_callables:
             child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
             child_callable_tree_item.include()
 
@@ -276,23 +280,24 @@ void func() {
 }
 ''')
 
-    callables = file.get_callables()
+    callables = file.callables
 
     export_callable = callables[0]
-    assert export_callable.get_name() == "void func()"
+    assert export_callable.name == "void func()"
     export_callable_tree_item = CallableTreeItem(export_callable)
     export_callable_tree_item.include()
 
-    for callable in export_callable.get_referenced_callables():
+    for callable in export_callable.referenced_callables:
         callable_tree_item = CallableTreeItem(callable, export_callable_tree_item)
         callable_tree_item.include()
-        for child_callable in callable.get_referenced_callables():
+        for child_callable in callable.referenced_callables:
             child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
             child_callable_tree_item.include()
 
     diagram = export_callable_tree_item.export()
     expected_diagram = '''@startuml
 
+"{0}" -> B: void B()
 "{0}" -> B: void m()
 B -> B: void p()
 B -> "{0}": void func()
@@ -319,9 +324,9 @@ public:
 };
 '''):
     file = build_index_with_file(directory, 'identify_local_function.cpp', code)
-    export_callable = file.get_callables()[0]
+    export_callable = file.callables[0]
     entry_point = MagicMock()
-    entry_point.get_callable.return_value = export_callable
+    type(entry_point).callable = PropertyMock(return_value=export_callable)
 
     return DiagramConfiguration(entry_point)
 
@@ -397,7 +402,7 @@ def test__diagram_configuration__export_calls_entry_point_export(directory):
     mock.assert_called_once_with()
 
 
-def test__callable_tree_item__export_function_with_constructor__export_correct_diagram(directory):
+def test__callable_tree_item__export_project_with_constructor__export_correct_diagram(directory):
     file_name = "function_with_constructor.cpp"
     file = build_index_with_file(directory, file_name, '''
     void bar();
@@ -414,18 +419,131 @@ def test__callable_tree_item__export_function_with_constructor__export_correct_d
     }
     ''')
 
-    callable = file.get_callables()[0]
+    callable = file.callables[0]
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
-    for child_callable in callable.get_referenced_callables():
+    for child_callable in callable.referenced_callables:
         child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
         child_callable_tree_item.include()
 
     diagram = callable_tree_item.export()
     expected_diagram = '''@startuml
 
+"{0}" -> A: void A()
 "{0}" -> A: void foo()
+
+@enduml'''.format(file_name)
+
+    assert diagram == expected_diagram
+
+
+def test__callable_tree_item__export_project_with_delete__export_correct_diagram(directory):
+    file_name = "function_with_constructor.cpp"
+    file = build_index_with_file(directory, file_name, '''
+    void bar();
+
+    class A {
+        A() {}
+
+        void foo() {}
+    }
+
+    void bar() {
+        A* a = new A();
+        delete a;
+    }
+    ''')
+
+    callable = file.callables[0]
+    callable_tree_item = CallableTreeItem(callable)
+    callable_tree_item.include()
+
+    for child_callable in callable.referenced_callables:
+        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+        child_callable_tree_item.include()
+
+    diagram = callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> A: void A()
+"{0}" -> A: <<destroy>>
+
+@enduml'''.format(file_name)
+
+    assert diagram == expected_diagram
+
+
+def test__callable_tree_item__export_project_with_destructor__export_correct_diagram(directory):
+    file_name = "function_with_constructor.cpp"
+    file = build_index_with_file(directory, file_name, '''
+    void bar();
+
+    class A {
+        A() {}
+
+        void foo() {}
+    }
+
+    void bar() {
+        A a;
+        a.~A();
+    }
+    ''')
+
+    callable = file.callables[0]
+    callable_tree_item = CallableTreeItem(callable)
+    callable_tree_item.include()
+
+    for child_callable in callable.referenced_callables:
+        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+        child_callable_tree_item.include()
+
+    diagram = callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> A: void A()
+"{0}" -> A: void ~A()
+
+@enduml'''.format(file_name)
+
+    assert diagram == expected_diagram
+
+
+def test__callable_tree_item__export_project_with_function_pointer__export_correct_diagram(directory):
+    file_name = "function_with_function_pointer.cpp"
+    file = build_index_with_file(directory, file_name, '''
+    void (*foo)(int);
+    void bar();
+    void baz();
+
+    void bar() {
+        foo(5);
+    }
+    
+    void baz() {
+        foo = &baz;
+        bar();
+    }
+    
+    ''')
+
+    callable = file.callables[1]
+    callable_tree_item = CallableTreeItem(callable)
+    callable_tree_item.include()
+
+    for child_callable in callable.referenced_callables:
+        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+        child_callable_tree_item.include()
+        for child_child_callable in child_callable.referenced_callables:
+            child_child_callable_tree_item = CallableTreeItem(child_child_callable, child_callable_tree_item)
+            child_child_callable_tree_item.include()
+
+    diagram = callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> "{0}": void bar()
+"{0}" -> "{0}": void (*)(int) foo
 
 @enduml'''.format(file_name)
 

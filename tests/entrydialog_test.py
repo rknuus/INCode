@@ -8,7 +8,7 @@ except:
     from models import CompilationDatabases, Index
 from PyQt5.QtGui import QStandardItem
 from PyQt5.QtWidgets import QApplication, QFileDialog
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 import pytest
 import sys
 
@@ -76,7 +76,7 @@ def test_dialog_onBrowse_twice__clears_entry_files_before_populating_again(mocke
 
 def build_callable_mock(name):
     mock = MagicMock()
-    mock.get_name.return_value = name
+    type(mock).name = PropertyMock(return_value=name)
     return mock
 
 
@@ -89,7 +89,7 @@ def get_entry_points(uut, expected_entry_points):
 def setup_entry_files(mocker, uut, expected_entry_points):
     callables = [build_callable_mock(name) for name in expected_entry_points]
     file_mock = MagicMock()
-    file_mock.get_callables.return_value = callables
+    type(file_mock).callables = PropertyMock(return_value=callables)
     mocker.patch.object(Index, 'load', return_value=file_mock)
     item = QStandardItem('/irrelevant/path')
     uut.entry_files_.appendRow(item)

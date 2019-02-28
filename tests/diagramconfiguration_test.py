@@ -255,6 +255,45 @@ B -> B: void p()
     assert diagram == expected_diagram
 
 
+def test__callable__export_of_function_call_in_parameter__sort_correct(directory):
+    file = build_index_with_file(directory, 'identify_local_function.cpp', '''
+class B {
+public:
+    void d(int val) {
+        p();
+    }
+    
+    int m() {
+        return 34;
+    }
+
+private:
+    void p() {
+        d(m());
+    }
+};
+''')
+    callables = file.callables
+    export_callable = callables[2]
+    export_callable_tree_item = CallableTreeItem(export_callable)
+    export_callable_tree_item.include()
+
+    for callable in export_callable.referenced_callables:
+        print(vars(callable))
+        callable_tree_item = CallableTreeItem(callable, export_callable_tree_item)
+        callable_tree_item.include()
+
+    diagram = export_callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+B -> B: int m()
+B -> B: void d(int)
+
+@enduml'''
+
+    assert diagram == expected_diagram
+
+
 def test__callable__export_of_member_method_and_function__export_correct_diagram(directory):
     file_name = 'identify_local_function.cpp'
     file = build_index_with_file(directory, file_name, '''

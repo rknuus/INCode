@@ -201,7 +201,11 @@ class Callable(object):
         return self.caller_
 
     def initialize(self):
-        for cursor in self.cursor_.walk_preorder():
+        self._load_cursors(self.cursor_.get_children())
+
+    def _load_cursors(self, cursors):
+        for cursor in cursors:
+            self._load_cursors(cursor.get_children())
             if Callable._is_a_call(cursor) and Index().is_interesting(cursor):
                 definition = cursor.referenced if cursor.referenced else cursor
                 if Caller.is_supported(definition):

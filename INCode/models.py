@@ -311,7 +311,7 @@ class FunctionPointer(Caller):
         return _get_function_pointer_signature(self.cursor_)
 
     def get_diagram_name(self):
-        return _get_function_pointer_signature(self.cursor_)
+        return '{}'.format(self.cursor_.type.spelling).replace("(*)", "(* {})".format(self.cursor_.displayname))
 
     def get_sender(self):
         return _get_function_sender(self.cursor_)

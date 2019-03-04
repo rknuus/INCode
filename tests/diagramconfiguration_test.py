@@ -582,7 +582,7 @@ def test__callable_tree_item__export_project_with_function_pointer__export_corre
     expected_diagram = '''@startuml
 
 "{0}" -> "{0}": void bar()
-"{0}" -> "{0}": void (*)(int) foo
+"{0}" -> "{0}": void (* foo)(int)
 
 @enduml'''.format(file_name)
 

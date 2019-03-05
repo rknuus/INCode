@@ -587,3 +587,75 @@ def test__callable_tree_item__export_project_with_function_pointer__export_corre
 @enduml'''.format(file_name)
 
     assert diagram == expected_diagram
+
+
+def test__callable_tree_item__export_project_with_class_operator__export_correct_diagram(directory):
+    file_name = "function_with_function_pointer.cpp"
+    file = build_index_with_file(directory, file_name, '''
+class X {
+public:
+  X operator -(X x) {
+    return x;
+  }
+};
+
+void foo() {
+    X x;
+    x = x - x;
+}
+    ''')
+
+    callable = file.callables[1]
+    callable_tree_item = CallableTreeItem(callable)
+    callable_tree_item.include()
+
+    for child_callable in callable.referenced_callables:
+        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+        child_callable_tree_item.include()
+
+    diagram = callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> X: void X()
+"{0}" -> X: void X(const X &)
+"{0}" -> X: X operator-(X)
+"{0}" -> X: X & operator=(X &&)
+
+@enduml'''.format(file_name)
+
+    assert diagram == expected_diagram
+
+
+def test__callable_tree_item__export_project_with_conversion_function__export_correct_diagram(directory):
+    file_name = "function_with_function_pointer.cpp"
+    file = build_index_with_file(directory, file_name, '''
+class X {
+public:
+  operator int() {
+    return 0;
+  }
+};
+
+void foo() {
+    X x;
+    int i = int(x);
+}
+    ''')
+
+    callable = file.callables[1]
+    callable_tree_item = CallableTreeItem(callable)
+    callable_tree_item.include()
+
+    for child_callable in callable.referenced_callables:
+        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+        child_callable_tree_item.include()
+
+    diagram = callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> X: void X()
+"{0}" -> X: operator int()
+
+@enduml'''.format(file_name)
+
+    assert diagram == expected_diagram

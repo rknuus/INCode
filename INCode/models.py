@@ -220,7 +220,7 @@ class Callable(object):
 
     @staticmethod
     def _is_a_callable(cursor):
-        return cursor.kind == CursorKind.FUNCTION_DECL or cursor.kind == CursorKind.CXX_METHOD
+        return cursor.kind  in [CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD, CursorKind.CONVERSION_FUNCTION]
 
 
 class Caller(ABC):
@@ -338,6 +338,20 @@ class Delete(Caller):
             return self._get_class_name(children[0])
 
 
+class Conversion(Caller):
+    def __init__(self, cursor):
+        super(Conversion, self).__init__(cursor)
+
+    def get_name(self):
+        return '{}::{}'.format(self.get_sender(), self.cursor_.displayname)
+
+    def get_diagram_name(self):
+        return self.cursor_.displayname
+
+    def get_sender(self):
+        return self.cursor_.semantic_parent.displayname
+
+
 def caller_factory(cursor):
     if not cursor:
         return
@@ -347,6 +361,7 @@ def caller_factory(cursor):
         CursorKind.CONSTRUCTOR: Constructor(cursor),
         CursorKind.DESTRUCTOR: Destructor(cursor),
         CursorKind.VAR_DECL: FunctionPointer(cursor),
-        CursorKind.CXX_DELETE_EXPR: Delete(cursor)
+        CursorKind.CXX_DELETE_EXPR: Delete(cursor),
+        CursorKind.CONVERSION_FUNCTION: Conversion(cursor)
     }
     return switcher.get(cursor.kind)

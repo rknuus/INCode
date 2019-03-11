@@ -205,7 +205,8 @@ class Callable(object):
 
     def _load_cursors(self, cursors):
         for cursor in cursors:
-            self._load_cursors(cursor.get_children())
+            if cursor.kind != CursorKind.LAMBDA_EXPR:
+                self._load_cursors(cursor.get_children())
             if Callable._is_a_call(cursor) and Index().is_interesting(cursor):
                 definition = cursor.referenced if cursor.referenced else cursor
                 if Caller.is_supported(definition):

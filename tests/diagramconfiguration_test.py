@@ -695,3 +695,36 @@ void foo() {
 @enduml'''.format(file_name)
 
     assert diagram == expected_diagram
+
+
+def test__callable_tree_item__export_project_with_std_function__export_correct_diagram(directory):
+    file_name = "function_with_function_pointer.cpp"
+    file = build_index_with_file(directory, file_name, '''
+#include <functional>
+#include <iostream>
+
+void foo(int i) {}
+
+void bar() {
+  std::function<void()> f_display_42 = []() { foo(42); };
+  f_display_42();
+}
+    ''')
+
+    callable = file.callables[1]
+    callable_tree_item = CallableTreeItem(callable)
+    callable_tree_item.include()
+
+    for child_callable in callable.referenced_callables:
+        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
+        child_callable_tree_item.include()
+
+    diagram = callable_tree_item.export()
+    expected_diagram = '''@startuml
+
+"{0}" -> function<void ()>: void function<>((lambda at {1}/function_with_function_pointer.cpp:8:40))
+"{0}" -> function<void ()>: void operator()()
+
+@enduml'''.format(file_name, directory)
+
+    assert diagram == expected_diagram

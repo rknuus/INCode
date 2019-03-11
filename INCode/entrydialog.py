@@ -67,9 +67,10 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         QApplication.instance().quit()
 
     def accept(self):
-        current = self.entry_point_list_.selectionModel().selectedIndexes()
-        if current and len(current) > 0:
-            entry_point = self.entry_points_.item(current[0].row(), 0)
-            self.hide()
-            self.window_ = DiagramConfiguration(entry_point)
-            self.window_.show()
+        if self.entry_point_list_.selectionModel():
+            current = self.entry_point_list_.selectionModel().selectedIndexes()
+            if current and len(current) > 0:
+                entry_point = self.entry_points_.item(current[0].row(), 0)
+                self.hide()
+                self.window_ = DiagramConfiguration(entry_point)
+                self.window_.show()

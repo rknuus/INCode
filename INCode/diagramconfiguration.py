@@ -108,6 +108,7 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             child_tree_item.setExpanded(True)
 
     def export(self):
+        print('exporting ', self.entry_point_item_.callable.name)
         content = self.entry_point_item_.export()
         self.generate_uml(content)
 

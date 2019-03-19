@@ -1,78 +1,138 @@
-<ui version="4.0" >
- <class>DiagramConfiguration</class>
- <widget class="QMainWindow" name="DiagramConfiguration" >
-  <property name="geometry" >
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>573</width>
-    <height>468</height>
-   </rect>
-  </property>
-  <widget class="QWidget" name="centralwidget_" >
-   <layout class="QVBoxLayout" name="vboxlayout_" >
-    <property name="margin" >
-     <number>0</number>
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>DiagramConfiguration</class>
+  <widget class="QMainWindow" name="DiagramConfiguration">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>573</width>
+        <height>468</height>
+      </rect>
     </property>
-    <property name="spacing" >
-     <number>0</number>
-    </property>
-    <item>
-     <widget class="QTreeWidget" name="tree_" />
-    </item>
-   </layout>
+    <widget class="QWidget" name="centralwidget_">
+      <layout class="QVBoxLayout" name="vboxlayout_">
+        <property name="spacing">
+          <number>0</number>
+        </property>
+        <property name="leftMargin">
+          <number>0</number>
+        </property>
+        <property name="topMargin">
+          <number>0</number>
+        </property>
+        <property name="rightMargin">
+          <number>0</number>
+        </property>
+        <property name="bottomMargin">
+          <number>0</number>
+        </property>
+        <item>
+          <widget class="QSplitter" name="wrapper">
+            <property name="orientation">
+              <enum>Qt::Vertical</enum>
+            </property>
+            <widget class="QTreeWidget" name="tree_">
+              <attribute name="headerVisible">
+                <bool>false</bool>
+              </attribute>
+              <column>
+                <property name="text">
+                  <string notr="true">1</string>
+                </property>
+              </column>
+            </widget>
+            <widget class="QScrollArea" name="image_wrapper_">
+              <property name="visible">
+                <bool>false</bool>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+              <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                  <horstretch>0</horstretch>
+                  <verstretch>1</verstretch>
+                </sizepolicy>
+              </property>
+              <property name="widgetResizable">
+                <bool>false</bool>
+              </property>
+              <widget class="QLabel" name="image_">
+                <property name="scaledContents">
+                  <bool>true</bool>
+                </property>
+                <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                </property>
+              </widget>
+            </widget>
+          </widget>
+        </item>
+      </layout>
+    </widget>
+    <widget class="QMenuBar" name="menubar_">
+      <property name="geometry">
+        <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>573</width>
+          <height>31</height>
+        </rect>
+      </property>
+      <widget class="QMenu" name="fileMenu_">
+        <property name="title">
+          <string>&amp;File</string>
+        </property>
+        <addaction name="exitAction_"/>
+      </widget>
+      <widget class="QMenu" name="actionsMenu_">
+        <property name="title">
+          <string>&amp;Actions</string>
+        </property>
+        <addaction name="revealChildrenAction_"/>
+        <addaction name="separator"/>
+        <addaction name="exportAction_"/>
+        <addaction name="separator"/>
+        <addaction name="toggleUmlAction_"/>
+      </widget>
+      <addaction name="fileMenu_"/>
+      <addaction name="actionsMenu_"/>
+    </widget>
+    <widget class="QStatusBar" name="statusbar_" />
+    <action name="exitAction_">
+      <property name="text">
+        <string>E&amp;xit</string>
+      </property>
+      <property name="shortcut">
+        <string>Ctrl+Q</string>
+      </property>
+    </action>
+    <action name="revealChildrenAction_">
+      <property name="text">
+        <string>Reveal Children</string>
+      </property>
+      <property name="shortcut">
+        <string>Ctrl+R</string>
+      </property>
+    </action>
+    <action name="exportAction_">
+      <property name="text">
+        <string>Export</string>
+      </property>
+      <property name="shortcut">
+        <string>Ctrl+S</string>
+      </property>
+    </action>
+    <action name="toggleUmlAction_">
+      <property name="text">
+        <string>Toggle UML</string>
+      </property>
+      <property name="shortcut">
+        <string>Ctrl+T</string>
+      </property>
+    </action>
   </widget>
-  <widget class="QMenuBar" name="menubar_" >
-   <property name="geometry" >
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>573</width>
-     <height>31</height>
-    </rect>
-   </property>
-   <widget class="QMenu" name="fileMenu_" >
-    <property name="title" >
-     <string>&amp;File</string>
-    </property>
-    <addaction name="exitAction_" />
-   </widget>
-   <widget class="QMenu" name="actionsMenu_" >
-    <property name="title" >
-     <string>&amp;Actions</string>
-    </property>
-    <addaction name="revealChildrenAction_" />
-    <addaction name="separator" />
-    <addaction name="exportAction_" />
-   </widget>
-   <addaction name="fileMenu_" />
-   <addaction name="actionsMenu_" />
-  </widget>
-  <widget class="QStatusBar" name="statusbar_" />
-  <action name="exitAction_" >
-   <property name="text" >
-    <string>E&amp;xit</string>
-   </property>
-   <property name="shortcut" >
-    <string>Ctrl+Q</string>
-   </property>
-  </action>
-  <action name="revealChildrenAction_" >
-   <property name="text" >
-    <string>Reveal Children</string>
-   </property>
-   <property name="shortcut" >
-    <string>Ctrl+R, R</string>
-   </property>
-  </action>
-  <action name="exportAction_" >
-   <property name="text" >
-    <string>Export</string>
-   </property>
-   <property name="shortcut" >
-    <string>Ctrl+S</string>
-   </property>
-  </action>
- </widget>
- <connections/>
+  <resources/>
+  <connections/>
 </ui>

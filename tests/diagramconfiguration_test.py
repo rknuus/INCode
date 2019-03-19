@@ -440,6 +440,7 @@ def test__diagram_configuration__export_calls_entry_point_export(directory):
         child_item.include()
 
     with patch.object(diagram_configuration.entry_point_item_, 'export') as mock:
+        mock.return_value = "@startuml\n\n@enduml"
         diagram_configuration.export()
 
     mock.assert_called_once_with()
@@ -695,3 +696,18 @@ void bar() {
 @enduml'''.format(file_name, directory)
 
     assert diagram == expected_diagram
+
+
+def test__generate_uml__export_project__show_generated_uml(directory):
+    diagram_configuration = setup_diagram_configuration(directory)
+    diagram_configuration.entry_point_item_.include()
+
+    for child_tree_item in diagram_configuration.entry_point_item_.referenced_items_:
+        child_tree_item.include()
+
+    assert diagram_configuration.image_.pixmap() is None
+
+    diagram_configuration.generate_uml(diagram_configuration.entry_point_item_.export())
+
+    assert diagram_configuration.image_.pixmap() is not None
+

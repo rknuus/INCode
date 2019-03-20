@@ -326,7 +326,7 @@ class Delete(Caller):
         return "delete " + self._get_class_name(self.cursor_)
 
     def get_diagram_name(self):
-        return "<<destroy>>"
+        return "<<delete>>"
 
     def get_sender(self):
         return self._get_class_name(self.cursor_)

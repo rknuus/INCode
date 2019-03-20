@@ -363,11 +363,15 @@ public:
 };
 '''):
     file = build_index_with_file(directory, 'identify_local_function.cpp', code)
-    export_callable = file.callables[0]
+    export_callable = callable_by_name("a", file.callables)
     entry_point = MagicMock()
     type(entry_point).callable = PropertyMock(return_value=export_callable)
 
     return DiagramConfiguration(entry_point)
+
+
+def callable_by_name(name, callables):
+    return list(filter(lambda c: name in c.name, callables))[0]
 
 
 def test__diagram_configuration__reveal_children_of_item_without_references__has_no_children_after_reveal(directory):
@@ -458,7 +462,7 @@ def test__callable_tree_item__export_project_with_constructor__export_correct_di
     }
     ''')
 
-    callable = file.callables[0]
+    callable = callable_by_name("bar", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
@@ -494,7 +498,7 @@ def test__callable_tree_item__export_project_with_delete__export_correct_diagram
     }
     ''')
 
-    callable = file.callables[0]
+    callable = callable_by_name("bar", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
@@ -506,7 +510,7 @@ def test__callable_tree_item__export_project_with_delete__export_correct_diagram
     expected_diagram = '''@startuml
 
 "{0}" -> A: void A()
-"{0}" -> A: <<destroy>>
+"{0}" -> A: <<delete>>
 
 @enduml'''.format(file_name)
 
@@ -530,7 +534,7 @@ def test__callable_tree_item__export_project_with_destructor__export_correct_dia
     }
     ''')
 
-    callable = file.callables[0]
+    callable = callable_by_name("bar", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
@@ -564,10 +568,9 @@ def test__callable_tree_item__export_project_with_function_pointer__export_corre
         foo = &baz;
         bar();
     }
-    
     ''')
 
-    callable = file.callables[1]
+    callable = callable_by_name("baz", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
@@ -594,8 +597,8 @@ def test__callable_tree_item__export_project_with_class_compound_operator__expor
     file = build_index_with_file(directory, file_name, '''
 class X {
 public:
-  X operator -=(X x) {
-    return x;
+  X& operator -=(X x) {
+    return *x;
   }
 };
 
@@ -605,7 +608,7 @@ void foo() {
 }
     ''')
 
-    callable = file.callables[1]
+    callable = callable_by_name("foo", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
@@ -618,7 +621,7 @@ void foo() {
 
 "{0}" -> X: void X()
 "{0}" -> X: void X(const X &)
-"{0}" -> X: X operator-=(X)
+"{0}" -> X: X & operator-=(X)
 
 @enduml'''.format(file_name)
 
@@ -630,8 +633,8 @@ def test__callable_tree_item__export_project_with_class_operator__export_correct
     file = build_index_with_file(directory, file_name, '''
 class X {
 public:
-  X operator -(X x) {
-    return x;
+  X &operator -(X x) {
+    return *x;
   }
 };
 
@@ -641,7 +644,7 @@ void foo() {
 }
     ''')
 
-    callable = file.callables[1]
+    callable = callable_by_name("foo", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
@@ -654,8 +657,8 @@ void foo() {
 
 "{0}" -> X: void X()
 "{0}" -> X: void X(const X &)
-"{0}" -> X: X operator-(X)
-"{0}" -> X: X & operator=(X &&)
+"{0}" -> X: X & operator-(X)
+"{0}" -> X: X & operator=(const X &)
 
 @enduml'''.format(file_name)
 
@@ -678,7 +681,7 @@ void foo() {
 }
     ''')
 
-    callable = file.callables[1]
+    callable = callable_by_name("foo", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 
@@ -711,7 +714,7 @@ void bar() {
 }
     ''')
 
-    callable = file.callables[1]
+    callable = callable_by_name("bar", file.callables)
     callable_tree_item = CallableTreeItem(callable)
     callable_tree_item.include()
 

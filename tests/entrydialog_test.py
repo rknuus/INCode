@@ -36,7 +36,7 @@ def test_dialog_initially_all_fields_empty():
 
 def get_entry_files(uut, expected_files):
     actual_entry_file_count = max(len(expected_files), uut.entry_files_.rowCount())
-    actual_entry_files = [uut.entry_files_.item(i).text() for i in range(actual_entry_file_count)]
+    actual_entry_files = [uut.entry_files_.item(i).data() for i in range(actual_entry_file_count)]
     return actual_entry_files
 
 

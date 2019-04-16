@@ -60,9 +60,10 @@ class CallableTreeItem(QTreeWidgetItem):
             child_callable = child_item.callable
             sender = callable.sender if self.is_included() else parent_sender
             if child_item.is_included():
-                diagram += '"{}" -> "{}": {}\n'.format(sender,
-                                                       child_callable.sender,
-                                                       child_callable.caller.get_diagram_name())
+                child_diagram_name = child_callable.caller.get_diagram_name()
+                diagram += '"{}" -> "{}": {}\n'.format(sender if sender else "-",
+                                                       child_callable.sender if child_callable.sender else "-",
+                                                       child_diagram_name if child_diagram_name else "-")
             diagram += child_item.export_relations_(sender)
         return diagram
 

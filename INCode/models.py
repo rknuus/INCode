@@ -3,6 +3,7 @@
 from clang.cindex import CursorKind, TranslationUnitLoadError, Cursor
 from clang import cindex
 from abc import ABC, abstractmethod
+import os
 import re
 
 
@@ -77,16 +78,55 @@ class Index(Borg):
         command = self.compilation_databases_.get_command(file)
         if not command:
             raise ValueError('No compilation command found for {}'.format(file))
+        print("Loading {}...".format(file))
         f = File(file, command)
         self.file_table_[file] = f
         return f
 
     def load_definition(self, declaration):
-        translation_units = Index._gen_open(self.compilation_databases_.get_files())
-        candidates = Index._gen_search(declaration.cursor_.spelling, translation_units)
-        for candidate in candidates:
-            self.load(candidate)
-        return self.callable_table_[declaration.id]
+        file_path = os.path.abspath(declaration.cursor_.location.file.name)
+        if file_path.startswith("/usr/include/"):
+            return declaration
+
+        translation_units = list(Index._gen_open(self.compilation_databases_.get_files()))
+        candidates = list(Index._gen_search(declaration.cursor_.spelling, translation_units))
+
+        file_name = os.path.basename(file_path).rsplit(".", 1)  # Extract filename from path
+        file_name = (".".join(file_name[:-1]) if len(file_name) > 1 else file_name[0]).lower()  # Remove Extension
+
+        print("Searching {}".format(file_path))
+        files_with_equal_name = list(filter(lambda f: file_name in os.path.basename(f), candidates))
+        if self._load_and_check(files_with_equal_name, declaration.id):
+            return self.callable_table_[declaration.id]
+
+        candidates = list(filter(lambda c: c not in files_with_equal_name, candidates))
+        original_file_path = file_path
+        count = len(candidates)
+        if count <= 3:
+            if self._load_and_check(candidates, declaration.id):
+                return self.callable_table_[declaration.id]
+        else:
+            definition = self._recursive_definition_search(candidates, declaration.id, file_path)
+            if definition:
+                return definition
+        print("Couldn't find definition for {} ({}) Found files: {}"
+              .format(declaration.name, original_file_path, count))
+        return declaration
+
+    def _recursive_definition_search(self, files, declaration_id, file_path):
+        file_path = "/".join(file_path.rsplit("/", 1)[:-1])
+        if file_path:
+            candidates = list(filter(lambda f: file_path == "/".join(f.rsplit("/", 1)[:-1]), files))
+            if self._load_and_check(candidates, declaration_id):
+                return self.callable_table_[declaration_id]
+            candidates = list(filter(lambda c: c not in candidates, files))
+            return self._recursive_definition_search(candidates, declaration_id, file_path)
+        return None
+
+    def _load_and_check(self, files, declaration_id):
+        for file in files:
+            self.load(file)
+        return self.callable_table_[declaration_id].is_definition()
 
     def register(self, callable):
         # don't replace with new callable if the old one already is a definition

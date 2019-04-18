@@ -2,16 +2,20 @@
 
 # Form implementation generated from reading ui file 'diagramconfiguration.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+
 class Ui_DiagramConfiguration(object):
     def setupUi(self, DiagramConfiguration):
         DiagramConfiguration.setObjectName("DiagramConfiguration")
         DiagramConfiguration.resize(573, 468)
+        DiagramConfiguration.setStyleSheet("\n"
+"     QSplitter::handle::horizontal, QSplitter::handle::vertical { width: 6px; background-color: #666; }\n"
+"   ")
         self.centralwidget_ = QtWidgets.QWidget(DiagramConfiguration)
         self.centralwidget_.setObjectName("centralwidget_")
         self.vboxlayout_ = QtWidgets.QVBoxLayout(self.centralwidget_)
@@ -22,24 +26,10 @@ class Ui_DiagramConfiguration(object):
         self.wrapper.setOrientation(QtCore.Qt.Vertical)
         self.wrapper.setObjectName("wrapper")
         self.tree_ = QtWidgets.QTreeWidget(self.wrapper)
+        self.tree_.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         self.tree_.setObjectName("tree_")
         self.tree_.headerItem().setText(0, "1")
         self.tree_.header().setVisible(False)
-        self.image_wrapper_ = QtWidgets.QScrollArea(self.wrapper)
-        self.image_wrapper_.setVisible(False)
-        self.image_wrapper_.setAlignment(QtCore.Qt.AlignCenter)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(1)
-        sizePolicy.setHeightForWidth(self.image_wrapper_.sizePolicy().hasHeightForWidth())
-        self.image_wrapper_.setSizePolicy(sizePolicy)
-        self.image_wrapper_.setWidgetResizable(False)
-        self.image_wrapper_.setObjectName("image_wrapper_")
-        self.image_ = QtWidgets.QLabel()
-        self.image_.setScaledContents(True)
-        self.image_.setAlignment(QtCore.Qt.AlignCenter)
-        self.image_.setObjectName("image_")
-        self.image_wrapper_.setWidget(self.image_)
         self.vboxlayout_.addWidget(self.wrapper)
         DiagramConfiguration.setCentralWidget(self.centralwidget_)
         self.menubar_ = QtWidgets.QMenuBar(DiagramConfiguration)
@@ -59,14 +49,17 @@ class Ui_DiagramConfiguration(object):
         self.revealChildrenAction_.setObjectName("revealChildrenAction_")
         self.exportAction_ = QtWidgets.QAction(DiagramConfiguration)
         self.exportAction_.setObjectName("exportAction_")
-        self.toggleUmlAction_ = QtWidgets.QAction(DiagramConfiguration)
-        self.toggleUmlAction_.setObjectName("toggleUmlAction_")
+        self.togglePreviewAction_ = QtWidgets.QAction(DiagramConfiguration)
+        self.togglePreviewAction_.setObjectName("togglePreviewAction_")
+        self.toggleLayoutAction_ = QtWidgets.QAction(DiagramConfiguration)
+        self.toggleLayoutAction_.setObjectName("toggleLayoutAction_")
         self.fileMenu_.addAction(self.exitAction_)
         self.actionsMenu_.addAction(self.revealChildrenAction_)
         self.actionsMenu_.addSeparator()
         self.actionsMenu_.addAction(self.exportAction_)
         self.actionsMenu_.addSeparator()
-        self.actionsMenu_.addAction(self.toggleUmlAction_)
+        self.actionsMenu_.addAction(self.togglePreviewAction_)
+        self.actionsMenu_.addAction(self.toggleLayoutAction_)
         self.menubar_.addAction(self.fileMenu_.menuAction())
         self.menubar_.addAction(self.actionsMenu_.menuAction())
 
@@ -83,6 +76,9 @@ class Ui_DiagramConfiguration(object):
         self.revealChildrenAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+R"))
         self.exportAction_.setText(_translate("DiagramConfiguration", "Export"))
         self.exportAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+S"))
-        self.toggleUmlAction_.setText(_translate("DiagramConfiguration", "Toggle UML"))
-        self.toggleUmlAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+T"))
+        self.togglePreviewAction_.setText(_translate("DiagramConfiguration", "Toggle UML"))
+        self.togglePreviewAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+T"))
+        self.toggleLayoutAction_.setText(_translate("DiagramConfiguration", "Toggle Preview"))
+        self.toggleLayoutAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+E"))
+
 

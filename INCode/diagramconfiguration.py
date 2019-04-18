@@ -1,9 +1,19 @@
 # Copyright (C) 2018 R. Knuus
 
+import datetime
+import subprocess
+import tempfile
+import os.path
 from enum import IntEnum
+from threading import Thread
+
+from plantweb.render import render
+from requests import RequestException
+
 from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
 from INCode.models import Index
-from PyQt5.QtCore import Qt
+from INCode.widgets import SvgView
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
 import os.path
 
@@ -65,12 +75,20 @@ class CallableTreeItem(QTreeWidgetItem):
 
 
 class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
+    load_view_signal = pyqtSignal(bytes)
+
     def __init__(self, entry_point_item, parent=None):
         super(DiagramConfiguration, self).__init__(parent)
         entry_point = entry_point_item.callable
 
         self.setupUi(self)
+        # TODO(FUR): try to include in .ui file
+        self.svg_view_ = SvgView()
+        self.wrapper.addWidget(self.svg_view_)
 
+        self.current_diagram_ = None
+
+        self.temp_dir_ = tempfile.mkdtemp()
         self.tree_.setColumnCount(TreeColumns.COLUMN_COUNT)
         self.tree_.header().hide()
         # TODO(KNR): to store the root item as member of this class is a hack, the tree should somehow provide
@@ -87,6 +105,13 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         self.revealChildrenAction_.triggered.connect(self.reveal_children)
         self.exportAction_.triggered.connect(self.export)
+        self.togglePreviewAction_.triggered.connect(self.toggle_preview)
+        self.toggleLayoutAction_.triggered.connect(self.toggle_layout)
+        self.load_view_signal.connect(self.load_svg_view)
+
+        self.preview_timer = QTimer()
+        self.preview_timer.timeout.connect(lambda: Thread(target=self.init_preview).start())
+        self.preview_timer.start(2000)
 
     def reveal_children(self):
         current_item = self.tree_.currentItem()
@@ -101,6 +126,57 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             child_tree_item = CallableTreeItem(child, current_item)
             child_tree_item.setExpanded(True)
 
+    def init_preview(self):
+        if self.svg_view_.isVisible():
+            content = self.generate_uml()
+            if content:
+                self.load_view_signal.emit(content)
+
     def export(self):
         print('exporting ', self.entry_point_item_.callable.name)
-        print(self.entry_point_item_.export())
+        content = self.generate_uml()
+        self.load_svg_view(content)
+
+    def toggle_preview(self):
+        if self.svg_view_.isVisible():
+            self.svg_view_.hide()
+        else:
+            self.svg_view_.show()
+
+    def toggle_layout(self):
+        orientation = Qt.Vertical if self.wrapper.orientation() == Qt.Horizontal else Qt.Horizontal
+        self.wrapper.setOrientation(orientation)
+
+    def generate_uml(self, content=None):
+        if not content:
+            content = self.entry_point_item_.export()
+        if content == self.current_diagram_ or content == '@startuml\n\n\n@enduml':
+            return
+        self.current_diagram_ = content
+        print(content)
+        try:
+            output = render(content,
+                            engine="plantuml",
+                            format="svg",
+                            cacheopts={
+                                "use_cache": False
+                            })[0]
+        except RequestException:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            temp_file_name = os.path.join(self.temp_dir_, timestamp) + ".svg"
+            cmd = "echo '{}' | plantuml -pipe > {} -tsvg".format(content, temp_file_name)
+            subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()
+            output = open(temp_file_name, "rb").read()
+            subprocess.call(["rm", temp_file_name])
+        return output
+
+    def load_svg_view(self, content):
+        if not content:
+            return
+        if not isinstance(content, bytes):
+            raise TypeError("Excepted type 'bytes', not '{}'".format(type(content)))
+        self.svg_view_.loadSvgContent(content)
+        self.wrapper.setStretchFactor(1, 1)
+
+
+

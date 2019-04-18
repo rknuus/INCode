@@ -106,21 +106,21 @@ class Index(Borg):
             if self._load_and_check(candidates, declaration.id):
                 return self.callable_table_[declaration.id]
         else:
-            definition = self._recursive_definition_search(candidates, declaration.id, file_path)
+            definition = self._search_definition_in_directory(candidates, declaration.id, file_path)
             if definition:
                 return definition
         print("Couldn't find definition for {} ({}) Found files: {}"
               .format(declaration.name, original_file_path, count))
         return declaration
 
-    def _recursive_definition_search(self, files, declaration_id, file_path):
+    def _search_definition_in_directory(self, files, declaration_id, file_path):
         file_path = "/".join(file_path.rsplit("/", 1)[:-1])
         if file_path:
             candidates = list(filter(lambda f: file_path == "/".join(f.rsplit("/", 1)[:-1]), files))
             if self._load_and_check(candidates, declaration_id):
                 return self.callable_table_[declaration_id]
             candidates = list(filter(lambda c: c not in candidates, files))
-            return self._recursive_definition_search(candidates, declaration_id, file_path)
+            return self._search_definition_in_directory(candidates, declaration_id, file_path)
         return None
 
     def _load_and_check(self, files, declaration_id):
@@ -257,11 +257,11 @@ class Callable(object):
 
     @staticmethod
     def _is_a_call(cursor):
-        return cursor.kind in [CursorKind.CALL_EXPR]
+        return cursor.kind == CursorKind.CALL_EXPR
 
     @staticmethod
     def _is_a_callable(cursor):
-        return cursor.kind  in [CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD, CursorKind.CONVERSION_FUNCTION]
+        return cursor.kind in [CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD, CursorKind.CONVERSION_FUNCTION]
 
 
 class Caller(ABC):

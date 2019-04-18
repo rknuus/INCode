@@ -668,7 +668,7 @@ def test__callable_tree_item__export_project_with_std_function__export_correct_d
     file_name = "function_with_function_pointer.cpp"
     file = build_index_with_file(directory, file_name, '''
 #include <functional>
-#include <iostream>
+
 
 void foo(int i) {}
 
@@ -693,20 +693,23 @@ void bar() {
 "{0}" -> "function<void ()>": void operator()()
 
 @enduml'''.format(file_name, directory)
-
+    print(diagram)
     assert diagram == expected_diagram
 
 
-def test__generate_uml__export_project__show_generated_uml(directory):
+def test__generate_uml__diagram_preview__generate_if_view_is_visible(directory):
     diagram_configuration = setup_diagram_configuration(directory)
-    diagram_configuration.entry_point_item_.include()
 
-    for child_tree_item in diagram_configuration.entry_point_item_.referenced_items_:
-        child_tree_item.include()
+    with patch.object(diagram_configuration.svg_view_, 'isVisible') as mock:
+        mock.return_value = False
+        diagram_configuration.entry_point_item_.include()
+        for child_tree_item in diagram_configuration.entry_point_item_.referenced_items_:
+            child_tree_item.include()
+        diagram_configuration.init_preview()
+        assert diagram_configuration.current_diagram_ is None
 
-    assert diagram_configuration.image_.pixmap() is None
-
-    diagram_configuration.generate_uml(diagram_configuration.entry_point_item_.export())
-
-    assert diagram_configuration.image_.pixmap() is not None
+        mock.return_value = True
+        diagram_configuration.init_preview()
+        assert diagram_configuration.current_diagram_ == diagram_configuration.entry_point_item_.export()
+        assert len(diagram_configuration.svg_view_.items()) == 1
 

@@ -251,11 +251,11 @@ class Callable(object):
 
     @staticmethod
     def _is_a_call(cursor):
-        return cursor.kind in [CursorKind.CALL_EXPR]
+        return cursor.kind == CursorKind.CALL_EXPR
 
     @staticmethod
     def _is_a_callable(cursor):
-        return cursor.kind  in [CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD, CursorKind.CONVERSION_FUNCTION]
+        return cursor.kind in [CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD, CursorKind.CONVERSION_FUNCTION]
 
 
 class Caller(ABC):

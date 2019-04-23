@@ -411,6 +411,6 @@ def test__index__set_common_path_to_none__still_works(directory):
     file_name = 'one_function.cpp'
     file = build_index_with_file(directory, file_name, 'void a() {}\n')
     callable = file.callables[0]
-    assert callable.sender == '"' + file_name + '"'
+    assert callable.sender == file_name
     Index().common_path = None
-    assert callable.sender == '"' + os.path.join(directory, file_name) + '"'
+    assert callable.sender == os.path.join(directory, file_name)

@@ -19,7 +19,7 @@ def _get_function_pointer_signature(cursor):
 
 
 def _get_function_sender(cursor):
-    return '"' + cursor.translation_unit.spelling.replace(Index().common_path, '') + '"'
+    return cursor.translation_unit.spelling.replace(Index().common_path, '')
 
 
 class CompilationDatabases(object):

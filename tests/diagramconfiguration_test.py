@@ -95,7 +95,7 @@ def test__callable_tree_item__export_excluded_parent_calling_included_child__exp
     diagram = parent.export()
     expected_diagram = '''@startuml
 
-"" -> "bar.cpp": void baz()
+"-" -> "bar.cpp": void baz()
 
 @enduml'''
 

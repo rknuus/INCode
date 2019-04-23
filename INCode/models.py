@@ -209,7 +209,7 @@ class Callable(object):
                 self._load_cursors(cursor.get_children())
             if Callable._is_a_call(cursor) and Index().is_interesting(cursor):
                 definition = cursor.referenced if cursor.referenced else cursor
-                if Caller.is_supported(definition):
+                if Caller.is_supported(definition) and definition.get_usr():
                     callable = Callable(definition, False)
                     if callable.id not in self.referenced_usrs_:
                         self.referenced_usrs_.append(callable.id)
@@ -217,7 +217,7 @@ class Callable(object):
 
     @staticmethod
     def _is_a_call(cursor):
-        return cursor.kind in [CursorKind.CALL_EXPR, CursorKind.CXX_DELETE_EXPR]
+        return cursor.kind in [CursorKind.CALL_EXPR]
 
     @staticmethod
     def _is_a_callable(cursor):
@@ -318,27 +318,6 @@ class FunctionPointer(Caller):
         return _get_function_sender(self.cursor_)
 
 
-class Delete(Caller):
-    def __init__(self, cursor):
-        super(Delete, self).__init__(cursor)
-
-    def get_name(self):
-        return "delete " + self._get_class_name(self.cursor_)
-
-    def get_diagram_name(self):
-        return "<<delete>>"
-
-    def get_sender(self):
-        return self._get_class_name(self.cursor_)
-
-    def _get_class_name(self, cursor):
-        children = list(cursor.get_children())
-        if cursor.kind == CursorKind.DECL_REF_EXPR:
-            return cursor.type.spelling.replace("*", "").strip()
-        elif len(children):
-            return self._get_class_name(children[0])
-
-
 class Conversion(Caller):
     def __init__(self, cursor):
         super(Conversion, self).__init__(cursor)
@@ -362,7 +341,6 @@ def caller_factory(cursor):
         CursorKind.CONSTRUCTOR: Constructor(cursor),
         CursorKind.DESTRUCTOR: Destructor(cursor),
         CursorKind.VAR_DECL: FunctionPointer(cursor),
-        CursorKind.CXX_DELETE_EXPR: Delete(cursor),
         CursorKind.CONVERSION_FUNCTION: Conversion(cursor)
     }
     return switcher.get(cursor.kind)

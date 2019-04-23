@@ -481,42 +481,6 @@ def test__callable_tree_item__export_project_with_constructor__export_correct_di
     assert diagram == expected_diagram
 
 
-def test__callable_tree_item__export_project_with_delete__export_correct_diagram(directory):
-    file_name = "function_with_constructor.cpp"
-    file = build_index_with_file(directory, file_name, '''
-    void bar();
-
-    class A {
-        A() {}
-
-        void foo() {}
-    }
-
-    void bar() {
-        A* a = new A();
-        delete a;
-    }
-    ''')
-
-    callable = callable_by_name("bar", file.callables)
-    callable_tree_item = CallableTreeItem(callable)
-    callable_tree_item.include()
-
-    for child_callable in callable.referenced_callables:
-        child_callable_tree_item = CallableTreeItem(child_callable, callable_tree_item)
-        child_callable_tree_item.include()
-
-    diagram = callable_tree_item.export()
-    expected_diagram = '''@startuml
-
-"{0}" -> A: void A()
-"{0}" -> A: <<delete>>
-
-@enduml'''.format(file_name)
-
-    assert diagram == expected_diagram
-
-
 def test__callable_tree_item__export_project_with_destructor__export_correct_diagram(directory):
     file_name = "function_with_constructor.cpp"
     file = build_index_with_file(directory, file_name, '''

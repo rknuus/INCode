@@ -30,6 +30,8 @@ class Ui_DiagramConfiguration(object):
         self.tree_.setObjectName("tree_")
         self.tree_.headerItem().setText(0, "1")
         self.tree_.header().setVisible(False)
+        self.svg_view_ = SvgView(self.wrapper)
+        self.svg_view_.setObjectName("svg_view_")
         self.vboxlayout_.addWidget(self.wrapper)
         DiagramConfiguration.setCentralWidget(self.centralwidget_)
         self.menubar_ = QtWidgets.QMenuBar(DiagramConfiguration)
@@ -82,3 +84,4 @@ class Ui_DiagramConfiguration(object):
         self.toggleLayoutAction_.setShortcut(_translate("DiagramConfiguration", "Ctrl+E"))
 
 
+from INCode.widgets import SvgView

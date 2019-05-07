@@ -50,6 +50,7 @@
                 </property>
               </column>
             </widget>
+            <widget class="SvgView" name="svg_view_"></widget>
           </widget>
         </item>
       </layout>
@@ -125,6 +126,12 @@
       </property>
     </action>
   </widget>
+  <customwidgets>
+    <customwidget>
+      <class>SvgView</class>
+      <header>INCode.widgets</header>
+    </customwidget>
+  </customwidgets>
   <resources/>
   <connections/>
 </ui>

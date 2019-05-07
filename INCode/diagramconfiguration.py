@@ -81,9 +81,6 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         entry_point = entry_point_item.callable
 
         self.setupUi(self)
-        # TODO(FUR): try to include in .ui file
-        self.svg_view_ = SvgView()
-        self.wrapper.addWidget(self.svg_view_)
 
         self.current_diagram_ = None
 

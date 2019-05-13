@@ -113,10 +113,9 @@ def local_and_xref_dep():
         yield directory
 
 
-def build_index(common_path=''):
-    index = MagicMock()
-    index.get_common_path.return_value = common_path
-    return index
+def build_index(db=CompilationDatabases(), common_path=''):
+    Index(db).common_path = common_path
+    return Index()
 
 
 def build_index_with_file(directory, file_name='empty.cpp', file_content=''):
@@ -124,7 +123,5 @@ def build_index_with_file(directory, file_name='empty.cpp', file_content=''):
     generate_project(directory, {file_path: file_content})
     db = CompilationDatabases()
     db.add_compilation_database(directory)
-    index = Index(db)
-    index.set_common_path(directory+"/")
-    file = index.load(file_path)
-    return index, file
+    index = build_index(db, directory+"/")
+    return index.load(file_path)

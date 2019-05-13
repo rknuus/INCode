@@ -10,10 +10,11 @@ import os
 
 class CallableItem(QStandardItem):
     def __init__(self, callable):
-        super(QStandardItem, self).__init__(callable.get_name())
+        super(QStandardItem, self).__init__(callable.name)
         self.callable_ = callable
 
-    def get_callable(self):
+    @property
+    def callable(self):
         return self.callable_
 
 
@@ -25,8 +26,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
 
         # TODO(KNR): prevent editing the entry file and entry point lists
 
-        self.db_ = CompilationDatabases()
-        self.index_ = Index(self.db_)
+        self.db_ = None
         self.entry_files_ = QStandardItemModel(self.entry_file_list_)
         self.entry_points_ = QStandardItemModel(self.entry_point_list_)
         self.browse_compilation_database_button_.clicked.connect(self.onBrowse)
@@ -43,22 +43,22 @@ class EntryDialog(QDialog, Ui_EntryDialog):
             self.compilation_database_path_.setText(path)
             self.db_ = CompilationDatabases()  # to clear any previous compilation database
             self.db_.add_compilation_database(os.path.dirname(path))
-            self.index_ = Index(self.db_)
+            index = Index(self.db_)
             self.entry_points_.clear()
             self.entry_files_.clear()
             file_paths = self.db_.get_files()
             for file in file_paths:
                 item = QStandardItem(file)
                 self.entry_files_.appendRow(item)
-            self.index_.set_common_path(os.path.commonprefix(file_paths))
+            index.common_path = os.path.commonprefix(file_paths)
 
     def onSelectEntryFile(self, current, previous):
         if not current:
             return
         entry_file_path = self.entry_files_.item(current.row(), 0).text()
-        entry_file = self.index_.load(entry_file_path)
+        entry_file = Index().load(entry_file_path)
         self.entry_points_.clear()
-        for callable in entry_file.get_callables():
+        for callable in entry_file.callables:
             item = CallableItem(callable)
             self.entry_points_.appendRow(item)
         self.entry_point_list_.setModel(self.entry_points_)
@@ -67,6 +67,8 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         QApplication.instance().quit()
 
     def accept(self):
+        if not self.entry_point_list_.selectionModel():
+            return
         current = self.entry_point_list_.selectionModel().selectedIndexes()
         if current and len(current) > 0:
             entry_point = self.entry_points_.item(current[0].row(), 0)

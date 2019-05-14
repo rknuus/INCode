@@ -706,11 +706,11 @@ def test__generate_uml__diagram_preview__generate_if_view_is_visible(directory):
         diagram_configuration.entry_point_item_.include()
         for child_tree_item in diagram_configuration.entry_point_item_.referenced_items_:
             child_tree_item.include()
-        diagram_configuration.init_preview()
+        diagram_configuration.update_preview()
         assert diagram_configuration.current_diagram_ is None
 
         mock.return_value = True
-        diagram_configuration.init_preview()
+        diagram_configuration.update_preview()
         assert diagram_configuration.current_diagram_ == diagram_configuration.entry_point_item_.export()
         assert len(diagram_configuration.svg_view_.items()) == 1
 

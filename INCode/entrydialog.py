@@ -22,6 +22,11 @@ class EntryDialog(QDialog, Ui_EntryDialog):
     def __init__(self, parent=None):
         super(EntryDialog, self).__init__(parent)
 
+        # Apply style sheet
+        qss_file = "INCode/entrydialog.qss"
+        with open(qss_file, "r") as fh:
+            self.setStyleSheet(fh.read())
+
         self.setupUi(self)
 
         # TODO(KNR): prevent editing the entry file and entry point lists
@@ -52,6 +57,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
                 item = QStandardItem(file.replace(index.common_path, ""))
                 item.setData(file)
                 self.entry_files_.appendRow(item)
+
 
     def onSelectEntryFile(self, current, previous):
         if not current:

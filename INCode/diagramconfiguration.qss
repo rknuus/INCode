@@ -1,0 +1,85 @@
+*{outline:none;}
+QMainWindow {
+   background-color: #fff;
+   color: #333;
+}
+
+QMenuBar {
+    background-color: #f2f2f2;
+    spacing: 0px;
+    border-bottom: 1px solid #ccc;
+    font-size: 13px;
+}
+
+QMenuBar::item, QMenu::item {
+    font-size: 13px;
+    padding: 6px 8px;
+    background: transparent;
+}
+
+QMenuBar::item:selected {
+    border: 1px solid #aaa;
+}
+
+QMenuBar::item:selected, QMenu::item:selected {
+    background: #adf;
+}
+
+QMenu {
+    border: 1px solid #ccc;
+}
+
+QMenu::item {
+    padding-left: 32px;
+}
+
+QMenu::indicator {
+    width: 32px;
+    height: 32px;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #ccc;
+    margin: 0px;
+}
+
+QSplitter::handle::horizontal {
+    width: 3px;
+    background: #ddd;
+}
+
+QSplitter::handle::vertical {
+    height: 3px;
+    background: #ddd;
+}
+
+QSplitter::handle:pressed {
+    background: #ccc;
+}
+
+QTreeView {
+    alternate-background-color: transparent;
+    show-decoration-selected: 0;
+    selection-background-color: transparent;
+    selection-color: white;
+    border: none;
+    padding: 3px;
+    padding-bottom: 0;
+}
+
+QTreeView::item {
+    border: none;
+    padding: 3px;
+    font-size: 12px;
+}
+
+QTreeView::item:selected {
+    border: none;
+    background: #bdf;
+    color: #000;
+}
+
+SvgView {
+    border: none;
+}

@@ -6,16 +6,12 @@ import tempfile
 import os.path
 from enum import IntEnum
 from threading import Thread
-
-from plantweb.render import render
 from requests import RequestException
-
-from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
-from INCode.models import Index
-from INCode.widgets import SvgView
+from plantweb.render import render
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
-import os.path
+from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
+from INCode.models import Index
 
 
 class TreeColumns(IntEnum):
@@ -35,6 +31,7 @@ class CallableTreeItem(QTreeWidgetItem):
         self.setText(TreeColumns.FIRST_COLUMN, callable.name)
         self.setFlags(self.flags() | Qt.ItemIsUserCheckable)
         self.setCheckState(TreeColumns.FIRST_COLUMN, Qt.Unchecked)
+        self.setExpanded(True)
         # TODO(KNR): probably prevent drag'n'drop operation
 
     @property
@@ -79,17 +76,15 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
     def __init__(self, entry_point_item, parent=None):
         super(DiagramConfiguration, self).__init__(parent)
-        entry_point = entry_point_item.callable
+
+        # Apply style sheet
+        qss_file = "INCode/diagramconfiguration.qss"
+        with open(qss_file, "r") as fh:
+            self.setStyleSheet(fh.read())
 
         self.setupUi(self)
 
-        self.current_diagram_ = None
-
-        self.temp_dir_ = tempfile.mkdtemp()
-        self.tree_.setColumnCount(TreeColumns.COLUMN_COUNT)
-        self.tree_.header().hide()
-        # TODO(KNR): to store the root item as member of this class is a hack, the tree should somehow provide
-        # this information
+        entry_point = entry_point_item.callable
         self.entry_point_item_ = CallableTreeItem(entry_point, self.tree_)
         for child in entry_point.referenced_callables:
             CallableTreeItem(child, self.entry_point_item_)
@@ -98,16 +93,15 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         for column in range(self.tree_.columnCount()):
             self.tree_.resizeColumnToContents(column)
 
-        self.exitAction_.triggered.connect(QApplication.instance().quit)
+        self.temp_dir_ = tempfile.mkdtemp()
+        self.current_diagram_ = None
 
-        self.revealChildrenAction_.triggered.connect(self.reveal_children)
-        self.exportAction_.triggered.connect(self.export)
-        self.togglePreviewAction_.triggered.connect(self.toggle_preview)
-        self.toggleLayoutAction_.triggered.connect(self.toggle_layout)
+        # Initialize Signals
         self.load_view_signal.connect(self.load_svg_view)
 
+        # Update diagram preview timer
         self.preview_timer = QTimer()
-        self.preview_timer.timeout.connect(lambda: Thread(target=self.init_preview).start())
+        self.preview_timer.timeout.connect(lambda: Thread(target=self.update_preview).start())
         self.preview_timer.start(2000)
 
     def reveal_children(self):
@@ -121,9 +115,11 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         for child in callable.referenced_callables:
             child_tree_item = CallableTreeItem(child, current_item)
-            child_tree_item.setExpanded(True)
 
-    def init_preview(self):
+        # Adjust vertical scrollbar
+        self.tree_.resizeColumnToContents(TreeColumns.FIRST_COLUMN)
+
+    def update_preview(self):
         if self.svg_view_.isVisible():
             content = self.generate_uml()
             if content:
@@ -134,11 +130,11 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         content = self.generate_uml()
         self.load_svg_view(content)
 
-    def toggle_preview(self):
-        if self.svg_view_.isVisible():
-            self.svg_view_.hide()
-        else:
+    def show_preview(self, show):
+        if show:
             self.svg_view_.show()
+        else:
+            self.svg_view_.hide()
 
     def toggle_layout(self):
         orientation = Qt.Vertical if self.wrapper.orientation() == Qt.Horizontal else Qt.Horizontal
@@ -158,6 +154,9 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
                             cacheopts={
                                 "use_cache": False
                             })[0]
+            # Default plantuml server has limited requests
+            if output.find(b"Service Overflow") != -1:
+                raise RequestException("Server not available")
         except RequestException:
             timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
             temp_file_name = os.path.join(self.temp_dir_, timestamp) + ".svg"
@@ -172,8 +171,8 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             return
         if not isinstance(content, bytes):
             raise TypeError("Excepted type 'bytes', not '{}'".format(type(content)))
-        self.svg_view_.loadSvgContent(content)
+        self.svg_view_.load_svg_content(content)
         self.wrapper.setStretchFactor(1, 1)
 
-
-
+    def exit(self):
+        QApplication.instance().quit()

@@ -12,7 +12,7 @@ class SvgView(QGraphicsView):
         self.setDragMode(QGraphicsView.ScrollHandDrag)
         self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
 
-    def loadSvgContent(self, content):
+    def load_svg_content(self, content):
         s = self.scene()
         s.clear()
         self.resetTransform()

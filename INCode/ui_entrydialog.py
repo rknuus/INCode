@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'INCode/entrydialog.ui'
+# Form implementation generated from reading ui file 'entrydialog.ui'
 #
-# Created by: PyQt5 UI code generator 5.10
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_EntryDialog(object):
     def setupUi(self, EntryDialog):
@@ -30,12 +31,14 @@ class Ui_EntryDialog(object):
         self.entry_file_label_.setObjectName("entry_file_label_")
         self.formLayout_.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.entry_file_label_)
         self.entry_file_list_ = QtWidgets.QListView(EntryDialog)
+        self.entry_file_list_.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.entry_file_list_.setObjectName("entry_file_list_")
         self.formLayout_.setWidget(2, QtWidgets.QFormLayout.SpanningRole, self.entry_file_list_)
         self.entry_point_label_ = QtWidgets.QLabel(EntryDialog)
         self.entry_point_label_.setObjectName("entry_point_label_")
         self.formLayout_.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.entry_point_label_)
         self.entry_point_list_ = QtWidgets.QListView(EntryDialog)
+        self.entry_point_list_.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.entry_point_list_.setObjectName("entry_point_list_")
         self.formLayout_.setWidget(4, QtWidgets.QFormLayout.SpanningRole, self.entry_point_list_)
         self.buttonBox_ = QtWidgets.QDialogButtonBox(EntryDialog)
@@ -56,4 +59,5 @@ class Ui_EntryDialog(object):
         self.browse_compilation_database_button_.setText(_translate("EntryDialog", "Browse..."))
         self.entry_file_label_.setText(_translate("EntryDialog", "Entry file"))
         self.entry_point_label_.setText(_translate("EntryDialog", "Entry point"))
+
 

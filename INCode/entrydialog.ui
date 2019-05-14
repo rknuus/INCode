@@ -43,7 +43,11 @@
     </widget>
    </item>
    <item row="2" column="0" colspan="2">
-    <widget class="QListView" name="entry_file_list_"/>
+    <widget class="QListView" name="entry_file_list_">
+     <property name="editTriggers">
+      <enum>QAbstractItemView::NoEditTriggers</enum>
+     </property>
+    </widget>
    </item>
    <item row="3" column="0">
     <widget class="QLabel" name="entry_point_label_">
@@ -53,7 +57,11 @@
     </widget>
    </item>
    <item row="4" column="0" colspan="2">
-    <widget class="QListView" name="entry_point_list_"/>
+    <widget class="QListView" name="entry_point_list_">
+     <property name="editTriggers">
+      <enum>QAbstractItemView::NoEditTriggers</enum>
+     </property>
+    </widget>
    </item>
    <item row="5" column="1">
     <widget class="QDialogButtonBox" name="buttonBox_">

@@ -1,6 +1,6 @@
 # Copyright (C) 2018 R. Knuus
 
-from clang.cindex import CursorKind, TranslationUnitLoadError, Cursor
+from clang.cindex import CursorKind, TranslationUnitLoadError
 from clang import cindex
 from abc import ABC, abstractmethod
 import os

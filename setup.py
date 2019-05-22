@@ -25,7 +25,7 @@ setup(
     ],
     python_requires='>=3',
     install_requires=[
-        'clang>=5.0', 'PyQt5', 'plantweb'
+        'clang>=5.0', 'PyQt5', 'requests', 'plantuml', 'Pillow'
     ],
     classifiers=[
         'Intended Audience :: Developers', 'Natural Language :: English', 'Programming Language :: Python :: 3'

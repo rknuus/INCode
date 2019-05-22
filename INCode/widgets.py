@@ -15,7 +15,6 @@ class SvgView(QGraphicsView):
     def load_svg_content(self, content):
         s = self.scene()
         s.clear()
-        self.resetTransform()
         item = QGraphicsSvgItem()
         item.setSharedRenderer(QSvgRenderer(content))
         item.setFlags(QGraphicsItem.ItemClipsToShape)
@@ -30,3 +29,7 @@ class SvgView(QGraphicsView):
             factor = pow(1.2, event.angleDelta().y() / 240.0)
             self.scale(factor, factor)
         event.accept()
+
+    def clear(self):
+        self.scene().clear()
+        self.resetTransform()

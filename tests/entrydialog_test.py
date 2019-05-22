@@ -7,8 +7,8 @@ except:
     import entrydialog
     from models import CompilationDatabases, Index
 from PyQt5.QtGui import QStandardItem
-from PyQt5.QtWidgets import QApplication, QFileDialog
-from unittest.mock import MagicMock, PropertyMock
+from PyQt5.QtWidgets import QApplication, QFileDialog, QDialog
+from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 import sys
 
@@ -131,12 +131,14 @@ def test_dialog_onSelectEntryFile_but_nothing_selected__does_not_populate_entry_
     uut.entry_point_list_.setModel.assert_not_called()
 
 
-def test_dialog_reject__quits_application(monkeypatch):
+def test_dialog_reject__return_reject(monkeypatch):
     exit_calls = []
     monkeypatch.setattr(QApplication, 'quit', lambda _: exit_calls.append(1))
+
     uut = entrydialog.EntryDialog()
-    uut.reject()
-    assert exit_calls == [1]
+    with patch.object(uut, "done") as mock:
+        uut.reject()
+        mock.assert_called_once_with(QDialog.Rejected)
 
 # Test List
 # =========

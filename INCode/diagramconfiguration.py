@@ -3,13 +3,17 @@
 import datetime
 import subprocess
 import tempfile
+from io import BytesIO
+from PIL import Image
 import os.path
 from enum import IntEnum
 from threading import Thread
-from requests import RequestException
-from plantweb.render import render
+from plantuml import PlantUML, PlantUMLHTTPError
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem, QDialog, QMessageBox, QFileDialog
+
+from INCode.config import Config
+from INCode.entrydialog import EntryDialog
 from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
 from INCode.models import Index
 
@@ -74,7 +78,7 @@ class CallableTreeItem(QTreeWidgetItem):
 class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
     load_view_signal = pyqtSignal(bytes)
 
-    def __init__(self, entry_point_item, parent=None):
+    def __init__(self, parent=None):
         super(DiagramConfiguration, self).__init__(parent)
 
         # Apply style sheet
@@ -82,19 +86,13 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         with open(qss_file, "r") as fh:
             self.setStyleSheet(fh.read())
 
+        self.entry_point_item_ = None
         self.setupUi(self)
-
-        entry_point = entry_point_item.callable
-        self.entry_point_item_ = CallableTreeItem(entry_point, self.tree_)
-        for child in entry_point.referenced_callables:
-            CallableTreeItem(child, self.entry_point_item_)
-
-        self.tree_.expandAll()
-        for column in range(self.tree_.columnCount()):
-            self.tree_.resizeColumnToContents(column)
+        self.setup_entry_point()
 
         self.temp_dir_ = tempfile.mkdtemp()
         self.current_diagram_ = None
+        self.local_only_action_.setChecked(Config().load(Config.LOCAL_ONLY) is True)
 
         # Initialize Signals
         self.load_view_signal.connect(self.load_svg_view)
@@ -103,6 +101,32 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         self.preview_timer = QTimer()
         self.preview_timer.timeout.connect(lambda: Thread(target=self.update_preview).start())
         self.preview_timer.start(2000)
+
+    def setup_entry_point(self):
+        if self.entry_point_item_:
+            selection = QMessageBox.question(self, "New Entry Point", "Your complete progress will be lost.\n"
+                                                                      "Do you wish to continue?",
+                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if selection == QMessageBox.No:
+                return False
+
+        self.tree_.clear()
+        self.svg_view_.clear()
+        dialog = EntryDialog()
+        dialog.exec()
+        if dialog.result() == QDialog.Rejected:
+            self.exit()
+            return
+
+        entry_point = dialog.get_entry_point()
+
+        self.entry_point_item_ = CallableTreeItem(entry_point, self.tree_)
+        for child in entry_point.referenced_callables:
+            CallableTreeItem(child, self.entry_point_item_)
+
+        self.tree_.expandAll()
+        self.tree_.resizeColumnToContents(TreeColumns.FIRST_COLUMN)
+        return True
 
     def reveal_children(self):
         current_item = self.tree_.currentItem()
@@ -114,10 +138,13 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             callable = Index().load_definition(callable)
 
         for child in callable.referenced_callables:
-            child_tree_item = CallableTreeItem(child, current_item)
+            CallableTreeItem(child, current_item)
 
         # Adjust vertical scrollbar
         self.tree_.resizeColumnToContents(TreeColumns.FIRST_COLUMN)
+
+    def toggle_local_only(self, local):
+        Config().store(Config.LOCAL_ONLY, local)
 
     def update_preview(self):
         if self.svg_view_.isVisible():
@@ -127,8 +154,12 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
     def export(self):
         print('exporting ', self.entry_point_item_.callable.name)
-        content = self.generate_uml()
-        self.load_svg_view(content)
+        name = QFileDialog.getSaveFileName(self, "Export Diagram",
+                                           os.path.join(os.getenv('HOME'), self.entry_point_item_.callable.name),
+                                           "{};;{};;{}".format("png", "svg", "uml"))
+        if name and name[0]:
+            file_name = self._render_diagram(name[1], None, name[0])
+            print("Exported to {}".format(file_name))
 
     def show_preview(self, show):
         if show:
@@ -142,29 +173,66 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
     def generate_uml(self, content=None):
         if not content:
+            if not self.entry_point_item_ or not self.entry_point_item_.callable:
+                return
             content = self.entry_point_item_.export()
         if content == self.current_diagram_ or content == '@startuml\n\n\n@enduml':
             return
         self.current_diagram_ = content
         print(content)
-        try:
-            output = render(content,
-                            engine="plantuml",
-                            format="svg",
-                            cacheopts={
-                                "use_cache": False
-                            })[0]
-            # Default plantuml server has limited requests
-            if output.find(b"Service Overflow") != -1:
-                raise RequestException("Server not available")
-        except RequestException:
-            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-            temp_file_name = os.path.join(self.temp_dir_, timestamp) + ".svg"
-            cmd = "echo '{}' | plantuml -pipe > {} -tsvg".format(content, temp_file_name)
-            subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()
-            output = open(temp_file_name, "rb").read()
-            subprocess.call(["rm", temp_file_name])
+        output = self._render_diagram("svg", content)
         return output
+
+    def _render_diagram(self, file_format, content=None, file_name=None):
+        if not content:
+            content = self.entry_point_item_.export()
+
+        if file_name and not file_name.endswith(file_format):
+            file_name += "." + file_format
+
+        # uml format is always offline
+        if file_format == "uml":
+            if not file_name:
+                return content
+            file = open(file_name, "w")
+            file.write(content)
+            file.close()
+            return
+
+        if Config().load(Config.LOCAL_ONLY):
+            return self._render_diagram_local(file_format, content, file_name)
+        else:
+            return self._render_diagram_online(file_format, content, file_name)
+
+    def _render_diagram_online(self, file_format, content=None, file_name=None):
+        renderer = PlantUML("http://www.plantuml.com/plantuml/{}/".format(file_format))
+        try:
+            output = renderer.processes(content)
+            if not file_name:
+                return output
+            if file_format == "png":
+                img = Image.open(BytesIO(output))
+                img.save(file_name)
+            else:
+                file = open(file_name, "w")
+                file.write(output.decode("utf-8"))
+                file.close()
+        except PlantUMLHTTPError:
+            file_name = self._render_diagram_local(file_format, content, file_name)
+        return file_name
+
+    def _render_diagram_local(self, file_format, content=None, file_name=None):
+        just_content = file_name is None
+        if just_content:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            file_name = os.path.join(self.temp_dir_, timestamp) + ".{}".format(file_format)
+        cmd = "echo '{}' | plantuml -pipe > {} -t{}".format(content, file_name, file_format)
+        subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()
+        if just_content:
+            output = open(file_name, "rb").read()
+            subprocess.call(["rm", file_name])
+            return output
+        return file_name
 
     def load_svg_view(self, content):
         if not content:

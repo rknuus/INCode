@@ -72,23 +72,33 @@
         <property name="title">
           <string>&amp;File</string>
         </property>
-        <addaction name="exitAction_"/>
+        <addaction name="new_action_"/>
+        <addaction name="export_action_"/>
+        <addaction name="separator"/>
+        <addaction name="exit_action_"/>
       </widget>
       <widget class="QMenu" name="actionsMenu_">
         <property name="title">
           <string>&amp;Actions</string>
         </property>
-        <addaction name="revealChildrenAction_"/>
+        <addaction name="reveal_children_action_"/>
         <addaction name="separator"/>
-        <addaction name="exportAction_"/>
-        <addaction name="separator"/>
-        <addaction name="showPreviewAction_"/>
-        <addaction name="toggleOrientationAction_"/>
+        <addaction name="show_preview_action_"/>
+        <addaction name="local_only_action_"/>
+        <addaction name="toggle_orientation_action_"/>
       </widget>
       <addaction name="fileMenu_"/>
       <addaction name="actionsMenu_"/>
     </widget>
-    <action name="exitAction_">
+    <action name="new_action_">
+      <property name="text">
+        <string>New</string>
+      </property>
+      <property name="shortcut">
+        <string>Ctrl+N</string>
+      </property>
+    </action>
+    <action name="exit_action_">
       <property name="text">
         <string>E&amp;xit</string>
       </property>
@@ -96,7 +106,7 @@
         <string>Ctrl+Q</string>
       </property>
     </action>
-    <action name="revealChildrenAction_">
+    <action name="reveal_children_action_">
       <property name="text">
         <string>Reveal Children</string>
       </property>
@@ -104,7 +114,7 @@
         <string>Ctrl+R</string>
       </property>
     </action>
-    <action name="exportAction_">
+    <action name="export_action_">
       <property name="text">
         <string>Export</string>
       </property>
@@ -112,7 +122,7 @@
         <string>Ctrl+S</string>
       </property>
     </action>
-    <action name="showPreviewAction_">
+    <action name="show_preview_action_">
       <property name="checkable">
         <bool>true</bool>
       </property>
@@ -126,7 +136,15 @@
         <string>Ctrl+T</string>
       </property>
     </action>
-    <action name="toggleOrientationAction_">
+    <action name="local_only_action_">
+      <property name="checkable">
+        <bool>true</bool>
+      </property>
+      <property name="text">
+        <string>Local Generation Only</string>
+      </property>
+    </action>
+    <action name="toggle_orientation_action_">
       <property name="text">
         <string>Toggle Orientation</string>
       </property>
@@ -145,31 +163,43 @@
   <resources/>
   <connections>
     <connection>
-      <sender>showPreviewAction_</sender>
+      <sender>show_preview_action_</sender>
       <signal>triggered()</signal>
       <receiver>DiagramConfiguration</receiver>
       <slot>show_preview()</slot>
     </connection>
     <connection>
-      <sender>toggleOrientationAction_</sender>
+      <sender>local_only_action_</sender>
+      <signal>triggered()</signal>
+      <receiver>DiagramConfiguration</receiver>
+      <slot>toggle_local_only()</slot>
+    </connection>
+    <connection>
+      <sender>toggle_orientation_action_</sender>
       <signal>triggered()</signal>
       <receiver>DiagramConfiguration</receiver>
       <slot>toggle_layout()</slot>
     </connection>
     <connection>
-      <sender>revealChildrenAction_</sender>
+      <sender>reveal_children_action_</sender>
       <signal>triggered()</signal>
       <receiver>DiagramConfiguration</receiver>
       <slot>reveal_children()</slot>
     </connection>
     <connection>
-      <sender>exportAction_</sender>
+      <sender>export_action_</sender>
       <signal>triggered()</signal>
       <receiver>DiagramConfiguration</receiver>
       <slot>export()</slot>
     </connection>
     <connection>
-      <sender>exitAction_</sender>
+      <sender>new_action_</sender>
+      <signal>triggered()</signal>
+      <receiver>DiagramConfiguration</receiver>
+      <slot>setup_entry_point()</slot>
+    </connection>
+    <connection>
+      <sender>exit_action_</sender>
       <signal>triggered()</signal>
       <receiver>DiagramConfiguration</receiver>
       <slot>exit()</slot>

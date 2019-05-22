@@ -1,3 +1,5 @@
+from PyQt5.QtWidgets import QDialog, QFileDialog, QApplication, QMessageBox
+from INCode.entrydialog import EntryDialog
 from INCode.models import Callable, CompilationDatabases, Index
 from INCode.diagramconfiguration import DiagramConfiguration, CallableTreeItem
 from tests.test_environment_generation import build_index_with_file, directory, \
@@ -5,7 +7,6 @@ from tests.test_environment_generation import build_index_with_file, directory, 
 from clang.cindex import CursorKind
 from unittest.mock import MagicMock, PropertyMock, patch
 import os.path
-
 
 def build_callable_tree_item():
     cursor = MagicMock()
@@ -346,7 +347,7 @@ void func() {
     assert diagram == expected_diagram
 
 
-def setup_diagram_configuration(directory, code='''
+def setup_diagram_configuration(directory, mocker, code='''
 class B {
 public:
     void a() {
@@ -364,18 +365,21 @@ public:
 '''):
     file = build_index_with_file(directory, 'identify_local_function.cpp', code)
     export_callable = callable_by_name("a", file.callables)
-    entry_point = MagicMock()
-    type(entry_point).callable = PropertyMock(return_value=export_callable)
+    entry_point = MagicMock(return_value=export_callable)
 
-    return DiagramConfiguration(entry_point)
+    mocker.patch.object(EntryDialog, "exec", return_value=None)
+    mocker.patch.object(EntryDialog, "result", return_value=QDialog.Accepted)
+    mocker.patch.object(EntryDialog, "get_entry_point", entry_point)
+
+    return DiagramConfiguration()
 
 
 def callable_by_name(name, callables):
     return list(filter(lambda c: name in c.name, callables))[0]
 
 
-def test__diagram_configuration__reveal_children_of_item_without_references__has_no_children_after_reveal(directory):
-    diagram_configuration = setup_diagram_configuration(directory, '''
+def test__diagram_configuration__reveal_children_of_item_without_references__has_no_children_after_reveal(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker, '''
 class B {
 public:
     void a() {}
@@ -388,8 +392,8 @@ public:
     assert diagram_configuration.entry_point_item_.childCount() == 0
 
 
-def test__diagram_configuration__reveal_children__has_children_after_reveal(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
+def test__diagram_configuration__reveal_children__has_children_after_reveal(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
 
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
     diagram_configuration.tree_.setCurrentItem(child_tree_item)
@@ -398,8 +402,8 @@ def test__diagram_configuration__reveal_children__has_children_after_reveal(dire
     assert child_tree_item.childCount() > 0
 
 
-def test__diagram_configuration__reveal_children__no_duplicates_after_multiple_reveal(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
+def test__diagram_configuration__reveal_children__no_duplicates_after_multiple_reveal(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
 
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
     diagram_configuration.tree_.setCurrentItem(child_tree_item)
@@ -411,8 +415,8 @@ def test__diagram_configuration__reveal_children__no_duplicates_after_multiple_r
     assert child_tree_item.childCount() == count
 
 
-def test__diagram_configuration__reveal_if_no_item_selected__no_action(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
+def test__diagram_configuration__reveal_if_no_item_selected__no_action(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
     diagram_configuration.reveal_children()
 
     child_items = diagram_configuration.entry_point_item_.referenced_items_
@@ -420,8 +424,8 @@ def test__diagram_configuration__reveal_if_no_item_selected__no_action(directory
         assert len(child_item.referenced_items_) == 0
 
 
-def test__diagram_configuration__reveal_children__check_if_tree_expands(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
+def test__diagram_configuration__reveal_children__check_if_tree_expands(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
 
     child_tree_item = diagram_configuration.entry_point_item_.referenced_items_[0]
     diagram_configuration.tree_.setCurrentItem(child_tree_item)
@@ -429,22 +433,6 @@ def test__diagram_configuration__reveal_children__check_if_tree_expands(director
 
     for child_child_tree_item in child_tree_item.referenced_items_:
         assert child_child_tree_item.isExpanded()
-
-
-def test__diagram_configuration__export_calls_entry_point_export(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
-    diagram_configuration.entry_point_item_.include()
-
-    child_items = diagram_configuration.entry_point_item_.referenced_items_
-    for child_item in child_items:
-        child_item.include()
-
-    with patch.object(diagram_configuration.entry_point_item_, 'export') as mock:
-        mock.return_value = "@startuml\n\n@enduml"
-        diagram_configuration.export()
-
-    mock.assert_called_once_with()
-
 
 def test__callable_tree_item__export_project_with_constructor__export_correct_diagram(directory):
     file_name = "function_with_constructor.cpp"
@@ -698,8 +686,8 @@ void bar() {
     assert diagram == expected_diagram
 
 
-def test__generate_uml__diagram_preview__generate_if_view_is_visible(directory):
-    diagram_configuration = setup_diagram_configuration(directory)
+def test__generate_uml__diagram_preview__generate_if_view_is_visible(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
 
     with patch.object(diagram_configuration.svg_view_, 'isVisible') as mock:
         mock.return_value = False
@@ -713,4 +701,79 @@ def test__generate_uml__diagram_preview__generate_if_view_is_visible(directory):
         diagram_configuration.update_preview()
         assert diagram_configuration.current_diagram_ == diagram_configuration.entry_point_item_.export()
         assert len(diagram_configuration.svg_view_.items()) == 1
+
+
+def test__diagram_configuration__export_calls_entry_point_export__export_as_png(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
+    diagram_configuration.entry_point_item_.include()
+
+    child_items = diagram_configuration.entry_point_item_.referenced_items_
+    for child_item in child_items:
+        child_item.include()
+
+    export_file_name = "exported_image"
+    file_path = os.path.join(directory, export_file_name)
+
+    mocker.patch.object(QFileDialog, 'getSaveFileName', return_value=(file_path, 'png'))
+
+    with patch.object(diagram_configuration.entry_point_item_, 'export') as mock:
+        mock.return_value = "@startuml\n\n@enduml"
+        diagram_configuration.export()
+
+    assert os.path.exists(file_path + ".png")
+    mock.assert_called_once_with()
+
+
+def test__diagram_configuration__export_calls_entry_point_export__export_as_uml(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
+    diagram_configuration.entry_point_item_.include()
+
+    child_items = diagram_configuration.entry_point_item_.referenced_items_
+    for child_item in child_items:
+        child_item.include()
+
+    export_file_name = "exported_image"
+    file_path = os.path.join(directory, export_file_name)
+
+    mocker.patch.object(QFileDialog, 'getSaveFileName', return_value=(file_path, 'uml'))
+    diagram = "@startuml\n\n@enduml"
+    with patch.object(diagram_configuration.entry_point_item_, 'export') as mock:
+        mock.return_value = diagram
+        diagram_configuration.export()
+    file_path += ".uml"
+
+    mock.assert_called_once_with()
+    assert os.path.exists(file_path)
+    assert open(file_path, "r").read() == diagram
+
+
+def test__change_entry_point__decline_message_box_warning__entry_point_item_has_changed(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
+    mocker.patch.object(QMessageBox, "question", return_value=QMessageBox.Yes)
+    new_entry_point_item = MagicMock()
+    new_entry_point_item.id = "123456"
+    new_entry_point_item.name = "test"
+    mocker.patch.object(EntryDialog, "get_entry_point", MagicMock(return_value=new_entry_point_item))
+    result = diagram_configuration.setup_entry_point()
+    assert result
+    assert new_entry_point_item.id == diagram_configuration.entry_point_item_.callable_id_
+
+
+def test__change_entry_point__decline_message_box_warning__cancel_change(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
+    entry_point_item = diagram_configuration.entry_point_item_
+    mocker.patch.object(QMessageBox, "question", return_value=QMessageBox.No)
+    result = diagram_configuration.setup_entry_point()
+
+    assert entry_point_item == diagram_configuration.entry_point_item_
+    assert not result
+
+
+def test__dialog_reject__quit_application(mocker):
+    called = []
+    mocker.patch.object(EntryDialog, "exec", return_value=None)
+    mocker.patch.object(EntryDialog, "result", return_value=QDialog.Rejected)
+    mocker.patch.object(QApplication, "quit", lambda _: called.append(1))
+    DiagramConfiguration()
+    assert called == [1]
 

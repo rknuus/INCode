@@ -1,10 +1,9 @@
 # Copyright (C) 2018 R. Knuus
 
-from INCode.diagramconfiguration import DiagramConfiguration
 from INCode.models import CompilationDatabases, Index
 from INCode.ui_entrydialog import Ui_EntryDialog
 from PyQt5.QtGui import QStandardItem, QStandardItemModel
-from PyQt5.QtWidgets import QApplication, QDialog, QFileDialog
+from PyQt5.QtWidgets import QDialog, QFileDialog
 import os
 
 
@@ -32,6 +31,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
         # TODO(KNR): prevent editing the entry file and entry point lists
 
         self.db_ = None
+        self.entry_point_ = None
         self.entry_files_ = QStandardItemModel(self.entry_file_list_)
         self.entry_points_ = QStandardItemModel(self.entry_point_list_)
         self.browse_compilation_database_button_.clicked.connect(self.onBrowse)
@@ -58,7 +58,6 @@ class EntryDialog(QDialog, Ui_EntryDialog):
                 item.setData(file)
                 self.entry_files_.appendRow(item)
 
-
     def onSelectEntryFile(self, current, previous):
         if not current:
             return
@@ -70,15 +69,16 @@ class EntryDialog(QDialog, Ui_EntryDialog):
             self.entry_points_.appendRow(item)
         self.entry_point_list_.setModel(self.entry_points_)
 
+    def get_entry_point(self):
+        return self.entry_point_
+
     def reject(self):
-        QApplication.instance().quit()
+        self.done(QDialog.Rejected)
 
     def accept(self):
         if not self.entry_point_list_.selectionModel():
             return
         current = self.entry_point_list_.selectionModel().selectedIndexes()
         if current and len(current) > 0:
-            entry_point = self.entry_points_.item(current[0].row(), 0)
-            self.hide()
-            self.window_ = DiagramConfiguration(entry_point)
-            self.window_.show()
+            self.entry_point_ = self.entry_points_.item(current[0].row(), 0).callable
+            self.done(QDialog.Accepted)

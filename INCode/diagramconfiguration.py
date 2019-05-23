@@ -12,10 +12,9 @@ from plantuml import PlantUML, PlantUMLHTTPError
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem, QDialog, QMessageBox, QFileDialog
 
-from INCode.config import Config
 from INCode.entrydialog import EntryDialog
 from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
-from INCode.models import Index
+from INCode.models import Index, Config
 
 
 class TreeColumns(IntEnum):

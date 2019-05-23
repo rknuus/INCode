@@ -1,4 +1,5 @@
-from configparser import ConfigParser
+import os
+from configparser import ConfigParser, MissingSectionHeaderError, ParsingError
 
 
 class Config(ConfigParser):
@@ -7,7 +8,10 @@ class Config(ConfigParser):
     def __init__(self, file_name="config.ini"):
         super().__init__()
         self.file_name_ = file_name
-        self.read(self.file_name_)
+        try:
+            self.read(self.file_name_)
+        except ParsingError:
+            print("Couldn't read config file ({}) due parsing error")
 
     def save(self):
         with open(self.file_name_, 'w') as config_file:

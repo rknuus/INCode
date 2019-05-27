@@ -686,7 +686,21 @@ void bar() {
     assert diagram == expected_diagram
 
 
-def test__generate_uml__diagram_preview__generate_if_view_is_visible(directory, mocker):
+def test__generate_uml__diagram_preview_is_visible__generate_diagram(directory, mocker):
+    diagram_configuration = setup_diagram_configuration(directory, mocker)
+
+    with patch.object(diagram_configuration.svg_view_, 'isVisible') as mock:
+        mock.return_value = True
+        diagram_configuration.entry_point_item_.include()
+        for child_tree_item in diagram_configuration.entry_point_item_.referenced_items_:
+            child_tree_item.include()
+
+        diagram_configuration.update_preview()
+        assert diagram_configuration.current_diagram_ == diagram_configuration.entry_point_item_.export()
+        assert len(diagram_configuration.svg_view_.items()) == 1
+
+
+def test__generate_uml__diagram_preview_is_hidden__ignore_generate_diagram(directory, mocker):
     diagram_configuration = setup_diagram_configuration(directory, mocker)
 
     with patch.object(diagram_configuration.svg_view_, 'isVisible') as mock:
@@ -694,13 +708,9 @@ def test__generate_uml__diagram_preview__generate_if_view_is_visible(directory, 
         diagram_configuration.entry_point_item_.include()
         for child_tree_item in diagram_configuration.entry_point_item_.referenced_items_:
             child_tree_item.include()
+
         diagram_configuration.update_preview()
         assert diagram_configuration.current_diagram_ is None
-
-        mock.return_value = True
-        diagram_configuration.update_preview()
-        assert diagram_configuration.current_diagram_ == diagram_configuration.entry_point_item_.export()
-        assert len(diagram_configuration.svg_view_.items()) == 1
 
 
 def test__diagram_configuration__export_calls_entry_point_export__export_as_png(directory, mocker):

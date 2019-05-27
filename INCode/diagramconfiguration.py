@@ -108,7 +108,6 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             child_tree_item.setExpanded(True)
 
     def export(self):
-        print('exporting ', self.entry_point_item_.callable.name)
         content = self.entry_point_item_.export()
         self.generate_uml(content)
 
@@ -119,7 +118,6 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             self.image_wrapper_.show()
 
     def generate_uml(self, content):
-        print(content)
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         temp_file_name = os.path.join(self.temp_dir_, timestamp)
         file = open(temp_file_name, "w+")

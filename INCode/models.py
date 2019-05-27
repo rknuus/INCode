@@ -78,7 +78,6 @@ class Index(Borg):
         command = self.compilation_databases_.get_command(file)
         if not command:
             raise ValueError('No compilation command found for {}'.format(file))
-        print("Loading {}...".format(file))
         f = File(file, command)
         self.file_table_[file] = f
         return f
@@ -91,16 +90,13 @@ class Index(Borg):
         translation_units = list(Index._gen_open(self.compilation_databases_.get_files()))
         candidates = list(Index._gen_search(declaration.cursor_.spelling, translation_units))
 
-        file_name = os.path.basename(file_path).rsplit(".", 1)  # Extract filename from path
-        file_name = (".".join(file_name[:-1]) if len(file_name) > 1 else file_name[0]).lower()  # Remove Extension
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
 
-        print("Searching {}".format(file_path))
         files_with_equal_name = list(filter(lambda f: file_name in os.path.basename(f), candidates))
         if self._load_and_check(files_with_equal_name, declaration.id):
             return self.callable_table_[declaration.id]
 
         candidates = list(filter(lambda c: c not in files_with_equal_name, candidates))
-        original_file_path = file_path
         count = len(candidates)
         if count <= 3:
             if self._load_and_check(candidates, declaration.id):
@@ -109,14 +105,12 @@ class Index(Borg):
             definition = self._search_definition_in_directory(candidates, declaration.id, file_path)
             if definition:
                 return definition
-        print("Couldn't find definition for {} ({}) Found files: {}"
-              .format(declaration.name, original_file_path, count))
         return declaration
 
     def _search_definition_in_directory(self, files, declaration_id, file_path):
-        file_path = "/".join(file_path.rsplit("/", 1)[:-1])
-        if file_path:
-            candidates = list(filter(lambda f: file_path == "/".join(f.rsplit("/", 1)[:-1]), files))
+        file_path = os.path.split(file_path)[0]
+        if file_path and file_path != "/":
+            candidates = list(filter(lambda f: file_path == os.path.split(f)[0], files))
             if self._load_and_check(candidates, declaration_id):
                 return self.callable_table_[declaration_id]
             candidates = list(filter(lambda c: c not in candidates, files))

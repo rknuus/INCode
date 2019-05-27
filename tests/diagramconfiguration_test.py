@@ -279,7 +279,6 @@ private:
     export_callable_tree_item.include()
 
     for callable in export_callable.referenced_callables:
-        print(vars(callable))
         callable_tree_item = CallableTreeItem(callable, export_callable_tree_item)
         callable_tree_item.include()
 

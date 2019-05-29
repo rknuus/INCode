@@ -47,15 +47,16 @@ class EntryDialog(QDialog, Ui_EntryDialog):
             self.entry_points_.clear()
             self.entry_files_.clear()
             file_paths = self.db_.get_files()
-            for file in file_paths:
-                item = QStandardItem(file)
-                self.entry_files_.appendRow(item)
             index.common_path = os.path.commonprefix(file_paths)
+            for file in file_paths:
+                item = QStandardItem(file.replace(index.common_path, ""))
+                item.setData(file)
+                self.entry_files_.appendRow(item)
 
     def onSelectEntryFile(self, current, previous):
         if not current:
             return
-        entry_file_path = self.entry_files_.item(current.row(), 0).text()
+        entry_file_path = self.entry_files_.item(current.row(), 0).data()
         entry_file = Index().load(entry_file_path)
         self.entry_points_.clear()
         for callable in entry_file.callables:

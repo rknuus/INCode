@@ -95,7 +95,7 @@ def test__callable_tree_item__export_excluded_parent_calling_included_child__exp
     diagram = parent.export()
     expected_diagram = '''@startuml
 
- -> "bar.cpp": void baz()
+"-" -> "bar.cpp": void baz()
 
 @enduml'''
 
@@ -203,7 +203,7 @@ def test__callable_tree_item__export_method_definition_loaded_over_declaration__
     diagram = parent.export()
     expected_diagram = '''@startuml
 
-A -> B: void b()
+"A" -> "B": void b()
 
 @enduml'''
 
@@ -247,8 +247,8 @@ private:
     diagram = export_callable_tree_item.export()
     expected_diagram = '''@startuml
 
-B -> B: void p()
-B -> B: void p()
+"B" -> "B": void p()
+"B" -> "B": void p()
 
 @enduml'''
 
@@ -279,15 +279,14 @@ private:
     export_callable_tree_item.include()
 
     for callable in export_callable.referenced_callables:
-        print(vars(callable))
         callable_tree_item = CallableTreeItem(callable, export_callable_tree_item)
         callable_tree_item.include()
 
     diagram = export_callable_tree_item.export()
     expected_diagram = '''@startuml
 
-B -> B: int m()
-B -> B: void d(int)
+"B" -> "B": int m()
+"B" -> "B": void d(int)
 
 @enduml'''
 
@@ -336,10 +335,10 @@ void func() {
     diagram = export_callable_tree_item.export()
     expected_diagram = '''@startuml
 
-"{0}" -> B: void B()
-"{0}" -> B: void m()
-B -> B: void p()
-B -> "{0}": void func()
+"{0}" -> "B": void B()
+"{0}" -> "B": void m()
+"B" -> "B": void p()
+"B" -> "{0}": void func()
 
 @enduml'''.format(file_name)
 
@@ -440,6 +439,7 @@ def test__diagram_configuration__export_calls_entry_point_export(directory):
         child_item.include()
 
     with patch.object(diagram_configuration.entry_point_item_, 'export') as mock:
+        mock.return_value = "@startuml\n\n@enduml"
         diagram_configuration.export()
 
     mock.assert_called_once_with()
@@ -473,8 +473,8 @@ def test__callable_tree_item__export_project_with_constructor__export_correct_di
     diagram = callable_tree_item.export()
     expected_diagram = '''@startuml
 
-"{0}" -> A: void A()
-"{0}" -> A: void foo()
+"{0}" -> "A": void A()
+"{0}" -> "A": void foo()
 
 @enduml'''.format(file_name)
 
@@ -509,8 +509,8 @@ def test__callable_tree_item__export_project_with_destructor__export_correct_dia
     diagram = callable_tree_item.export()
     expected_diagram = '''@startuml
 
-"{0}" -> A: void A()
-"{0}" -> A: void ~A()
+"{0}" -> "A": void A()
+"{0}" -> "A": void ~A()
 
 @enduml'''.format(file_name)
 
@@ -583,9 +583,9 @@ void foo() {
     diagram = callable_tree_item.export()
     expected_diagram = '''@startuml
 
-"{0}" -> X: void X()
-"{0}" -> X: void X(const X &)
-"{0}" -> X: X & operator-=(X)
+"{0}" -> "X": void X()
+"{0}" -> "X": void X(const X &)
+"{0}" -> "X": X & operator-=(X)
 
 @enduml'''.format(file_name)
 
@@ -619,10 +619,10 @@ void foo() {
     diagram = callable_tree_item.export()
     expected_diagram = '''@startuml
 
-"{0}" -> X: void X()
-"{0}" -> X: void X(const X &)
-"{0}" -> X: X & operator-(X)
-"{0}" -> X: X & operator=(const X &)
+"{0}" -> "X": void X()
+"{0}" -> "X": void X(const X &)
+"{0}" -> "X": X & operator-(X)
+"{0}" -> "X": X & operator=(const X &)
 
 @enduml'''.format(file_name)
 
@@ -656,8 +656,8 @@ void foo() {
     diagram = callable_tree_item.export()
     expected_diagram = '''@startuml
 
-"{0}" -> X: void X()
-"{0}" -> X: operator int()
+"{0}" -> "X": void X()
+"{0}" -> "X": operator int()
 
 @enduml'''.format(file_name)
 
@@ -689,9 +689,24 @@ void bar() {
     diagram = callable_tree_item.export()
     expected_diagram = '''@startuml
 
-"{0}" -> function<void ()>: void function<>((lambda at {1}/function_with_function_pointer.cpp:8:40))
-"{0}" -> function<void ()>: void operator()()
+"{0}" -> "function<void ()>": void function<>((lambda at {1}/function_with_function_pointer.cpp:8:40))
+"{0}" -> "function<void ()>": void operator()()
 
 @enduml'''.format(file_name, directory)
 
     assert diagram == expected_diagram
+
+
+def test__generate_uml__export_project__show_generated_uml(directory):
+    diagram_configuration = setup_diagram_configuration(directory)
+    diagram_configuration.entry_point_item_.include()
+
+    for child_tree_item in diagram_configuration.entry_point_item_.referenced_items_:
+        child_tree_item.include()
+
+    assert diagram_configuration.image_.pixmap() is None
+
+    diagram_configuration.generate_uml(diagram_configuration.entry_point_item_.export())
+
+    assert diagram_configuration.image_.pixmap() is not None
+

@@ -1,10 +1,14 @@
 # Copyright (C) 2018 R. Knuus
 
 from enum import IntEnum
+import datetime
+import subprocess
+import tempfile
 from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
 from INCode.models import Index
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
+from PyQt5.QtGui import QPixmap
 import os.path
 
 
@@ -56,9 +60,10 @@ class CallableTreeItem(QTreeWidgetItem):
             child_callable = child_item.callable
             sender = callable.sender if self.is_included() else parent_sender
             if child_item.is_included():
-                diagram += '{} -> {}: {}\n'.format(sender,
-                                                   child_callable.sender,
-                                                   child_callable.caller.get_diagram_name())
+                child_diagram_name = child_callable.caller.get_diagram_name()
+                diagram += '"{}" -> "{}": {}\n'.format(sender if sender else "-",
+                                                       child_callable.sender if child_callable.sender else "-",
+                                                       child_diagram_name if child_diagram_name else "-")
             diagram += child_item.export_relations_(sender)
         return diagram
 
@@ -70,6 +75,7 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         self.setupUi(self)
 
+        self.temp_dir_ = tempfile.mkdtemp()
         self.tree_.setColumnCount(TreeColumns.COLUMN_COUNT)
         self.tree_.header().hide()
         # TODO(KNR): to store the root item as member of this class is a hack, the tree should somehow provide
@@ -86,6 +92,7 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         self.revealChildrenAction_.triggered.connect(self.reveal_children)
         self.exportAction_.triggered.connect(self.export)
+        self.toggleUmlAction_.triggered.connect(self.toggle_uml)
 
     def reveal_children(self):
         current_item = self.tree_.currentItem()
@@ -101,5 +108,27 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             child_tree_item.setExpanded(True)
 
     def export(self):
-        print('exporting ', self.entry_point_item_.callable.name)
-        print(self.entry_point_item_.export())
+        content = self.entry_point_item_.export()
+        self.generate_uml(content)
+
+    def toggle_uml(self):
+        if self.image_wrapper_.isVisible():
+            self.image_wrapper_.hide()
+        else:
+            self.image_wrapper_.show()
+
+    def generate_uml(self, content):
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        temp_file_name = os.path.join(self.temp_dir_, timestamp)
+        file = open(temp_file_name, "w+")
+        file.write(content)
+        file.close()
+        subprocess.call(["plantuml", temp_file_name])
+        subprocess.call(["rm", temp_file_name])
+
+        temp_file_name += ".png"
+        pixmap = QPixmap(temp_file_name)
+        self.image_.setPixmap(pixmap)
+        self.image_.resize(pixmap.size())
+        subprocess.call(["rm", temp_file_name])
+        self.image_wrapper_.show()

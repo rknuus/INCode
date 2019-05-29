@@ -3,6 +3,7 @@
 from clang.cindex import CursorKind, TranslationUnitLoadError, Cursor
 from clang import cindex
 from abc import ABC, abstractmethod
+import os
 import re
 
 
@@ -19,7 +20,7 @@ def _get_function_pointer_signature(cursor):
 
 
 def _get_function_sender(cursor):
-    return '"' + cursor.translation_unit.spelling.replace(Index().common_path, '') + '"'
+    return cursor.translation_unit.spelling.replace(Index().common_path, '')
 
 
 class CompilationDatabases(object):
@@ -82,11 +83,44 @@ class Index(Borg):
         return f
 
     def load_definition(self, declaration):
-        translation_units = Index._gen_open(self.compilation_databases_.get_files())
-        candidates = Index._gen_search(declaration.cursor_.spelling, translation_units)
-        for candidate in candidates:
-            self.load(candidate)
-        return self.callable_table_[declaration.id]
+        file_path = os.path.abspath(declaration.cursor_.location.file.name)
+        if file_path.startswith("/usr/include/"):
+            return declaration
+
+        translation_units = list(Index._gen_open(self.compilation_databases_.get_files()))
+        candidates = list(Index._gen_search(declaration.cursor_.spelling, translation_units))
+
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+
+        files_with_equal_name = list(filter(lambda f: file_name in os.path.basename(f), candidates))
+        if self._load_and_check(files_with_equal_name, declaration.id):
+            return self.callable_table_[declaration.id]
+
+        candidates = list(filter(lambda c: c not in files_with_equal_name, candidates))
+        count = len(candidates)
+        if count <= 3:
+            if self._load_and_check(candidates, declaration.id):
+                return self.callable_table_[declaration.id]
+        else:
+            definition = self._search_definition_in_directory(candidates, declaration.id, file_path)
+            if definition:
+                return definition
+        return declaration
+
+    def _search_definition_in_directory(self, files, declaration_id, file_path):
+        file_path = os.path.split(file_path)[0]
+        if file_path and file_path != "/":
+            candidates = list(filter(lambda f: file_path == os.path.split(f)[0], files))
+            if self._load_and_check(candidates, declaration_id):
+                return self.callable_table_[declaration_id]
+            candidates = list(filter(lambda c: c not in candidates, files))
+            return self._search_definition_in_directory(candidates, declaration_id, file_path)
+        return None
+
+    def _load_and_check(self, files, declaration_id):
+        for file in files:
+            self.load(file)
+        return self.callable_table_[declaration_id].is_definition()
 
     def register(self, callable):
         # don't replace with new callable if the old one already is a definition

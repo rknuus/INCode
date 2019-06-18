@@ -1,20 +1,17 @@
 # Copyright (C) 2018 R. Knuus
 
+from datetime import datetime
 from enum import IntEnum
-import datetime
-import subprocess
-import tempfile
-from threading import Thread
-
-from plantweb.render import render
-from requests import RequestException
-
-from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
 from INCode.models import Index
-from INCode.widgets import SvgView
+from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
+from os import path
+from plantweb.render import render
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
-import os.path
+from requests import RequestException
+from threading import Thread
+import subprocess
+import tempfile
 
 
 class TreeColumns(IntEnum):
@@ -143,11 +140,10 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         orientation = Qt.Vertical if self.wrapper.orientation() == Qt.Horizontal else Qt.Horizontal
         self.wrapper.setOrientation(orientation)
 
-    def generate_uml(self, content=None):
-        if not content:
-            content = self.entry_point_item_.export()
+    def generate_uml(self):
+        content = self.entry_point_item_.export()
         if content == self.current_diagram_ or content == '@startuml\n\n\n@enduml':
-            return
+            return False
         self.current_diagram_ = content
         print(content)
         try:
@@ -158,8 +154,8 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
                                 "use_cache": False
                             })[0]
         except RequestException:
-            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-            temp_file_name = os.path.join(self.temp_dir_, timestamp) + ".svg"
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            temp_file_name = path.join(self.temp_dir_, timestamp) + ".svg"
             cmd = "echo '{}' | plantuml -pipe > {} -tsvg".format(content, temp_file_name)
             subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()
             output = open(temp_file_name, "rb").read()
@@ -172,7 +168,6 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
         if not isinstance(content, bytes):
             raise TypeError("Excepted type 'bytes', not '{}'".format(type(content)))
         self.svg_view_.loadSvgContent(content)
-        self.wrapper.setStretchFactor(1, 1)
 
 
 

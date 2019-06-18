@@ -1,9 +1,9 @@
 # Copyright (C) 2018 R. Knuus
 
-from clang.cindex import CursorKind, TranslationUnitLoadError, Cursor
-from clang import cindex
 from abc import ABC, abstractmethod
-import os
+from clang.cindex import CursorKind, TranslationUnitLoadError
+from clang import cindex
+from os import path
 import re
 
 
@@ -83,16 +83,16 @@ class Index(Borg):
         return f
 
     def load_definition(self, declaration):
-        file_path = os.path.abspath(declaration.cursor_.location.file.name)
+        file_path = path.abspath(declaration.cursor_.location.file.name)
         if file_path.startswith("/usr/include/"):
             return declaration
 
         translation_units = list(Index._gen_open(self.compilation_databases_.get_files()))
         candidates = list(Index._gen_search(declaration.cursor_.spelling, translation_units))
 
-        file_name = os.path.splitext(os.path.basename(file_path))[0]
+        file_name = path.splitext(path.basename(file_path))[0]
 
-        files_with_equal_name = list(filter(lambda f: file_name in os.path.basename(f), candidates))
+        files_with_equal_name = list(filter(lambda f: file_name in path.basename(f), candidates))
         if self._load_and_check(files_with_equal_name, declaration.id):
             return self.callable_table_[declaration.id]
 
@@ -108,9 +108,9 @@ class Index(Borg):
         return declaration
 
     def _search_definition_in_directory(self, files, declaration_id, file_path):
-        file_path = os.path.split(file_path)[0]
+        file_path = path.split(file_path)[0]
         if file_path and file_path != "/":
-            candidates = list(filter(lambda f: file_path == os.path.split(f)[0], files))
+            candidates = list(filter(lambda f: file_path == path.split(f)[0], files))
             if self._load_and_check(candidates, declaration_id):
                 return self.callable_table_[declaration_id]
             candidates = list(filter(lambda c: c not in candidates, files))

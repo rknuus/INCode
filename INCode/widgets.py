@@ -1,7 +1,7 @@
 # Copyright (C) 2018 R. Knuus
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem
 from PyQt5.QtSvg import QGraphicsSvgItem, QSvgRenderer
+from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem
 
 
 class SvgView(QGraphicsView):

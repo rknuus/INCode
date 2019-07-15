@@ -1,15 +1,17 @@
 # Copyright (C) 2018 R. Knuus
 
+from datetime import datetime
 from enum import IntEnum
-import datetime
+from INCode.models import Index
+from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
+from os import path
+from plantweb.render import render
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
+from requests import RequestException
+from threading import Thread
 import subprocess
 import tempfile
-from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
-from INCode.models import Index
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
-from PyQt5.QtGui import QPixmap
-import os.path
 
 
 class TreeColumns(IntEnum):
@@ -69,11 +71,15 @@ class CallableTreeItem(QTreeWidgetItem):
 
 
 class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
+    load_view_signal = pyqtSignal(bytes)
+
     def __init__(self, entry_point_item, parent=None):
         super(DiagramConfiguration, self).__init__(parent)
         entry_point = entry_point_item.callable
 
         self.setupUi(self)
+
+        self.current_diagram_ = None
 
         self.temp_dir_ = tempfile.mkdtemp()
         self.tree_.setColumnCount(TreeColumns.COLUMN_COUNT)
@@ -92,7 +98,13 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
         self.revealChildrenAction_.triggered.connect(self.reveal_children)
         self.exportAction_.triggered.connect(self.export)
-        self.toggleUmlAction_.triggered.connect(self.toggle_uml)
+        self.togglePreviewAction_.triggered.connect(self.toggle_preview)
+        self.toggleLayoutAction_.triggered.connect(self.toggle_layout)
+        self.load_view_signal.connect(self.load_svg_view)
+
+        self.preview_timer = QTimer()
+        self.preview_timer.timeout.connect(lambda: Thread(target=self.init_preview).start())
+        self.preview_timer.start(2000)
 
     def reveal_children(self):
         current_item = self.tree_.currentItem()
@@ -107,28 +119,55 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
             child_tree_item = CallableTreeItem(child, current_item)
             child_tree_item.setExpanded(True)
 
+    def init_preview(self):
+        if self.svg_view_.isVisible():
+            content = self.generate_uml()
+            if content:
+                self.load_view_signal.emit(content)
+
     def export(self):
-        content = self.entry_point_item_.export()
-        self.generate_uml(content)
+        print('exporting ', self.entry_point_item_.callable.name)
+        content = self.generate_uml()
+        self.load_svg_view(content)
 
-    def toggle_uml(self):
-        if self.image_wrapper_.isVisible():
-            self.image_wrapper_.hide()
+    def toggle_preview(self):
+        if self.svg_view_.isVisible():
+            self.svg_view_.hide()
         else:
-            self.image_wrapper_.show()
+            self.svg_view_.show()
 
-    def generate_uml(self, content):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        temp_file_name = os.path.join(self.temp_dir_, timestamp)
-        file = open(temp_file_name, "w+")
-        file.write(content)
-        file.close()
-        subprocess.call(["plantuml", temp_file_name])
-        subprocess.call(["rm", temp_file_name])
+    def toggle_layout(self):
+        orientation = Qt.Vertical if self.wrapper.orientation() == Qt.Horizontal else Qt.Horizontal
+        self.wrapper.setOrientation(orientation)
 
-        temp_file_name += ".png"
-        pixmap = QPixmap(temp_file_name)
-        self.image_.setPixmap(pixmap)
-        self.image_.resize(pixmap.size())
-        subprocess.call(["rm", temp_file_name])
-        self.image_wrapper_.show()
+    def generate_uml(self):
+        content = self.entry_point_item_.export()
+        if content == self.current_diagram_ or content == '@startuml\n\n\n@enduml':
+            return False
+        self.current_diagram_ = content
+        print(content)
+        try:
+            output = render(content,
+                            engine="plantuml",
+                            format="svg",
+                            cacheopts={
+                                "use_cache": False
+                            })[0]
+        except RequestException:
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            temp_file_name = path.join(self.temp_dir_, timestamp) + ".svg"
+            cmd = "echo '{}' | plantuml -pipe > {} -tsvg".format(content, temp_file_name)
+            subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()
+            output = open(temp_file_name, "rb").read()
+            subprocess.call(["rm", temp_file_name])
+        return output
+
+    def load_svg_view(self, content):
+        if not content:
+            return
+        if not isinstance(content, bytes):
+            raise TypeError("Excepted type 'bytes', not '{}'".format(type(content)))
+        self.svg_view_.loadSvgContent(content)
+
+
+

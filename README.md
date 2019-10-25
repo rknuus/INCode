@@ -6,7 +6,7 @@ Interactive diagram generator from C++ code. Combine human intelligence to selec
 ### Using a stretch container
 If you're using a stretch container, you have to add the repository for the right libclang version first:
 ```bash
-sudo apt-get install -y software-properties-common
+sudo apt install -y software-properties-common
 wget --no-check-certificate -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 sudo apt-add-repository "deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-6.0 main"
 sudo apt update

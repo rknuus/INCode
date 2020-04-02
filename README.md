@@ -1,6 +1,9 @@
 # INCode
 Interactive diagram generator from C++ code. Combine human intelligence to select only relevant elements for a diagram with machine to perform call tree analysis in correct and repetitive manner.
 
+## Status
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 ## Dependencies
 
 ### Using a stretch container

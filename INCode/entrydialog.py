@@ -40,9 +40,11 @@ class EntryDialog(QDialog, Ui_EntryDialog):
             path = path[0]
             if not path:
                 return
+            compilation_database_directory = os.path.dirname(path)
+            os.chdir(compilation_database_directory)
             self.compilation_database_path_.setText(path)
             self.db_ = CompilationDatabases()  # to clear any previous compilation database
-            self.db_.add_compilation_database(os.path.dirname(path))
+            self.db_.add_compilation_database(compilation_database_directory)
             index = Index(self.db_)
             self.entry_points_.clear()
             self.entry_files_.clear()

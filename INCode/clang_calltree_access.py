@@ -1,6 +1,6 @@
 # Copyright (C) 2020 R. Knuus
 
-from clang.cindex import Index
+from clang.cindex import CursorKind, Index
 from os import path
 
 
@@ -37,8 +37,14 @@ class ClangCalltreeAccess(object):
         if len(error_messages) > 0:
             raise SyntaxError('\n'.join(error_messages))
 
-        self.call_tree_.append(tu)
+        self.parse_(tu.cursor)
 
     @property
     def call_tree(self):
         return self.call_tree_
+
+    def parse_(self, node):
+        if node.kind == CursorKind.FUNCTION_DECL:
+            self.call_tree_.append(node.displayname)
+        for child in node.get_children():
+            self.parse_(child)

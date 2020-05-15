@@ -1,6 +1,7 @@
 # Copyright (C) 2020 R. Knuus
 
 from clang.cindex import CursorKind, Index
+from collections import defaultdict
 from os import path
 import json
 
@@ -20,11 +21,11 @@ def get_diagnostic_message(diag):
         diag.location.file.name, diag.location.line, diag.location.column)
 
 
-class ClangCalltreeAccess(object):
+class ClangCallGraphAccess(object):
     '''Constructs a call tree from given TUs.'''
     def __init__(self):
-        super(ClangCalltreeAccess, self).__init__()
-        self.call_tree_ = []
+        super(ClangCallGraphAccess, self).__init__()
+        self.calls_of_ = defaultdict(list)
 
     def parse_tu(self, tu, compiler_arguments):
         if not path.exists(tu):
@@ -38,17 +39,20 @@ class ClangCalltreeAccess(object):
         if len(error_messages) > 0:
             raise SyntaxError('\n'.join(error_messages))
 
-        self.parse_(tu.cursor)
+        self.build_tree_(ast_node=tu.cursor, parent_node='')
 
-    @property
-    def call_tree(self):
-        return self.call_tree_
+    def get_calls_of(self, callable):
+        return self.calls_of_[callable]
 
-    def parse_(self, node):
-        if node.kind == CursorKind.FUNCTION_DECL:
-            self.call_tree_.append(node.displayname)
-        for child in node.get_children():
-            self.parse_(child)
+    def build_tree_(self, ast_node, parent_node):
+        # NOTE(KNR): Creating Nodes for function declarations creates redundant
+        #            Nodes. Either delay Node creation or prune the tree afterwards.
+        if ast_node.kind == CursorKind.FUNCTION_DECL:
+            parent_node = ast_node.displayname
+        if ast_node.kind == CursorKind.CALL_EXPR:
+            self.calls_of_[parent_node].append(ast_node.referenced.displayname)
+        for child_ast_node in ast_node.get_children():
+            self.build_tree_(ast_node=child_ast_node, parent_node=parent_node)
 
 
 class ClangTUAccess(object):

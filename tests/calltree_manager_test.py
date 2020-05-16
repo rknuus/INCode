@@ -10,8 +10,3 @@ def test_given_call_tree_depth_of_two__dump_returns_extected_output():
     with generate_file('two-functions.cpp', 'void g() {}\nvoid f() {g();}') as file_name:
         actual = manager.dump(file_name, 'f()')
     assert actual == excepted
-
-
-# TEST LIST
-# ---------
-# * pass non-existing entry point

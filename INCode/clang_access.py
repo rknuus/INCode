@@ -26,6 +26,7 @@ class ClangCallGraphAccess(object):
     def __init__(self):
         super(ClangCallGraphAccess, self).__init__()
         self.calls_of_ = defaultdict(list)
+        self.callables_ = set()
 
     def parse_tu(self, tu, compiler_arguments):
         if not path.exists(tu):
@@ -42,12 +43,17 @@ class ClangCallGraphAccess(object):
         self.build_tree_(ast_node=tu.cursor, parent_node='')
 
     def get_calls_of(self, callable):
+        if callable not in self.callables_:
+            raise KeyError('Unknown callable {}'.format(callable))
+        if callable not in self.calls_of_:
+            return []
         return self.calls_of_[callable]
 
     def build_tree_(self, ast_node, parent_node):
         # NOTE(KNR): Creating Nodes for function declarations creates redundant
         #            Nodes. Either delay Node creation or prune the tree afterwards.
         if ast_node.kind == CursorKind.FUNCTION_DECL:
+            self.callables_.add(ast_node.displayname)
             parent_node = ast_node.displayname
         if ast_node.kind == CursorKind.CALL_EXPR:
             self.calls_of_[parent_node].append(ast_node.referenced.displayname)

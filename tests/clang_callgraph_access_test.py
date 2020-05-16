@@ -44,3 +44,11 @@ def test__given_file_with_syntax_error__parse_tree_throws():
     with generate_file('syntax-error.cpp', 'void f() {') as file_name:
         with pytest.raises(SyntaxError):
             access.parse_tu(tu=file_name, compiler_arguments='')
+
+
+def test_given_unknown_entry_point__dump_throws():
+    access = ClangCallGraphAccess()
+    with generate_file('one-function.cpp', 'void f() {}') as file_name:
+        access.parse_tu(tu=file_name, compiler_arguments='')
+    with pytest.raises(KeyError):
+        access.get_calls_of('g()')

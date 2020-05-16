@@ -57,18 +57,18 @@ class ClangCallGraphAccess(object):
 
 class ClangTUAccess(object):
     '''Returns files and their compiler arguments from a compilation database.'''
-    def __init__(self, filename, extra_arguments=None):
+    def __init__(self, file_name, extra_arguments=None):
         super(ClangTUAccess, self).__init__()
         self.extra_arguments_ = extra_arguments or ''
-        self.files_ = self.collect_files_(filename)
+        self.files_ = self.collect_files_(file_name)
 
     @property
     def files(self):
         return self.files_
 
-    def collect_files_(self, filename):
-        if not filename.endswith('compile_commands.json'):
-            return {filename: self.extra_arguments_}
-        with open(filename) as compdb:
+    def collect_files_(self, file_name):
+        if not file_name.endswith('compile_commands.json'):
+            return {file_name: self.extra_arguments_}
+        with open(file_name) as compdb:
             db = json.load(compdb)
         return {entry['file']: entry['command'] for entry in db}

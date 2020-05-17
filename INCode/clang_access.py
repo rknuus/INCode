@@ -30,7 +30,7 @@ class ClangCallGraphAccess(object):
         self.calls_of_ = defaultdict(list)
         self.callables_ = set()
 
-    def parse_tu(self, tu_file_name, compiler_arguments):
+    def parse_tu(self, tu_file_name, compiler_arguments, exclude_system_headers=False):
         if not path.exists(tu_file_name):
             raise FileNotFoundError(tu_file_name)
         index = Index.create()
@@ -42,6 +42,9 @@ class ClangCallGraphAccess(object):
         if len(error_messages) > 0:
             raise SyntaxError('\n'.join(error_messages))
 
+        if exclude_system_headers:
+            self.exclude_prefixes_ = self.get_system_header_include_prefixes_(compiler_arguments)
+
         self.build_tree_(ast_node=tu.cursor, parent_node='')
 
     def get_calls_of(self, callable):
@@ -52,8 +55,8 @@ class ClangCallGraphAccess(object):
         return self.calls_of_[callable]
 
     def build_tree_(self, ast_node, parent_node):
-        # NOTE(KNR): Creating Nodes for function declarations creates redundant
-        #            Nodes. Either delay Node creation or prune the tree afterwards.
+        if self.should_exclude_(ast_node.location.file):
+            return
         if ast_node.kind == CursorKind.FUNCTION_DECL:
             self.callables_.add(ast_node.displayname)
             parent_node = ast_node.displayname
@@ -61,6 +64,20 @@ class ClangCallGraphAccess(object):
             self.calls_of_[parent_node].append(ast_node.referenced.displayname)
         for child_ast_node in ast_node.get_children():
             self.build_tree_(ast_node=child_ast_node, parent_node=parent_node)
+
+    def get_system_header_include_prefixes_(self, compiler_arguments):
+        # -isystem <path>
+        exclude_prefixes = []
+        for i in range(len(compiler_arguments)-1):
+            if compiler_arguments[i] == 'isystem':
+                exclude_prefixes.append(compiler_arguments[i + 1])
+        return exclude_prefixes
+
+    def should_exclude_(self, file_name):
+        for pattern in self.exclude_prefixes_:
+            if file_name.startswith(pattern):
+                return True
+        return False
 
 
 def filter_redundant_file_name_(file_name, command):

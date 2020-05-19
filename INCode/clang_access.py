@@ -17,9 +17,10 @@ clang_severity_str = {
 
 
 def get_diagnostic_message(diag):
+    file = diag.location.file.name if diag.location.file else ''
     return '{}: {} in file {}, line {}, column {}'.format(
         clang_severity_str[diag.severity], diag.spelling,
-        diag.location.file.name, diag.location.line, diag.location.column)
+        file, diag.location.line, diag.location.column)
 
 
 class ClangCallGraphAccess(object):

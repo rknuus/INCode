@@ -44,6 +44,7 @@ class ClangCallGraphAccess(object):
         if len(error_messages) > 0:
             raise SyntaxError('\n'.join(error_messages))
 
+        self.exclude_prefixes_ = []
         if exclude_system_headers:
             self.exclude_prefixes_ = self.get_system_header_include_prefixes_(compiler_arguments)
 

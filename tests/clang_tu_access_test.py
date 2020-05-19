@@ -30,6 +30,6 @@ def test__given_compilation_database_with_one_file__return_file_and_args():
     content = '[{ "command": "-I/usr/include", "file": "file.cpp" }]'
     with generate_file('compile_commands.json', content) as file_name:
         access = ClangTUAccess(file_name=file_name)
-    expected = {'file.cpp': '-I/usr/include'}
+    expected = {'file.cpp': ['-I/usr/include']}
     actual = access.files
     assert actual == expected

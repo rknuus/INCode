@@ -21,6 +21,7 @@ setup(
         'INCode'
     ],
     scripts=[
+        'INCode/bin/call_tree_dumper.py'
     ],
     python_requires='>=3',
     install_requires=[

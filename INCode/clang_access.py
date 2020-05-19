@@ -29,11 +29,11 @@ class ClangCallGraphAccess(object):
         self.calls_of_ = defaultdict(list)
         self.callables_ = set()
 
-    def parse_tu(self, tu, compiler_arguments):
-        if not path.exists(tu):
-            raise FileNotFoundError(tu)
+    def parse_tu(self, tu_file_name, compiler_arguments):
+        if not path.exists(tu_file_name):
+            raise FileNotFoundError(tu_file_name)
         index = Index.create()
-        tu = index.parse(tu, compiler_arguments)
+        tu = index.parse(tu_file_name, compiler_arguments)
         assert tu
 
         error_messages = [get_diagnostic_message(d) for d in tu.diagnostics

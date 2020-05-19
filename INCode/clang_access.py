@@ -4,6 +4,7 @@ from clang.cindex import CursorKind, Index
 from collections import defaultdict
 from os import path
 import json
+import re
 
 
 clang_severity_str = {
@@ -59,6 +60,14 @@ class ClangCallGraphAccess(object):
             self.calls_of_[parent_node].append(ast_node.referenced.displayname)
         for child_ast_node in ast_node.get_children():
             self.build_tree_(ast_node=child_ast_node, parent_node=parent_node)
+
+
+def filter_redundant_file_name_(file_name, command):
+    dash_c_option_pattern = re.compile('(-c\\s+{})'.format(file_name))
+    match = dash_c_option_pattern.search(command)
+    if match:
+        return command.replace(match.group(0), '')
+    return command
 
 
 class ClangTUAccess(object):

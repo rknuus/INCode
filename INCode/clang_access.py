@@ -4,7 +4,9 @@ from clang.cindex import Cursor, CursorKind, Index
 from collections import defaultdict
 from os import path
 import json
+import os
 import re
+import shlex
 
 
 clang_severity_str = {
@@ -91,9 +93,10 @@ class ClangCallGraphAccess(object):
 
 def filter_redundant_file_name_(file_name, command):
     dash_c_option_pattern = re.compile('(-c\\s+{})'.format(file_name))
-    match = dash_c_option_pattern.search(command)
+    command_string = ' '.join(command)
+    match = dash_c_option_pattern.search(command_string)
     if match:
-        return command.replace(match.group(0), '')
+        return shlex.split(command_string.replace(match.group(0), ''))
     return command
 
 
@@ -110,7 +113,16 @@ class ClangTUAccess(object):
 
     def collect_files_(self, file_name):
         if not file_name.endswith('compile_commands.json'):
+            # return {file_name: filter_redundant_file_name_(file_name, ' '.join(self.extra_arguments_))}
             return {file_name: self.extra_arguments_}
         with open(file_name) as compdb:
             db = json.load(compdb)
-        return {entry['file']: entry['command'] for entry in db}
+        extra = self.extra_arguments_ if self.extra_arguments_ else []
+        # BORKED(KNR):
+        # arbitrarily change to first directory to handle relative paths
+        # which only works as long as all directories are identical
+        if len(db) > 0 and 'directory' in db[0]:
+            os.chdir(db[0]['directory'])
+        # END BORKED
+        return {entry['file']: filter_redundant_file_name_(entry['file'], shlex.split(entry['command']) + extra)
+                for entry in db}

@@ -21,7 +21,6 @@ setup(
         'INCode'
     ],
     scripts=[
-        'INCode/bin/INCode'
     ],
     python_requires='>=3',
     install_requires=[

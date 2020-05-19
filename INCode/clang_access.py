@@ -1,6 +1,6 @@
 # Copyright (C) 2020 R. Knuus
 
-from clang.cindex import CursorKind, Index
+from clang.cindex import Cursor, CursorKind, Index
 from collections import defaultdict
 from os import path
 import json
@@ -45,23 +45,24 @@ class ClangCallGraphAccess(object):
         if exclude_system_headers:
             self.exclude_prefixes_ = self.get_system_header_include_prefixes_(compiler_arguments)
 
-        self.build_tree_(ast_node=tu.cursor, parent_node='')
+        self.build_tree_(ast_node=tu.cursor, parent_node=None)
 
     def get_calls_of(self, callable):
-        if callable not in self.callables_:
-            raise KeyError('Unknown callable {}'.format(callable))
-        if callable not in self.calls_of_:
+        if callable not in self.callables_ or callable not in self.calls_of_:
             return []
         return self.calls_of_[callable]
 
     def build_tree_(self, ast_node, parent_node):
         if self.should_exclude_(ast_node.location.file):
             return
-        if ast_node.kind == CursorKind.FUNCTION_DECL:
-            self.callables_.add(ast_node.displayname)
-            parent_node = ast_node.displayname
-        if ast_node.kind == CursorKind.CALL_EXPR:
-            self.calls_of_[parent_node].append(ast_node.referenced.displayname)
+        if ast_node.kind == CursorKind.FUNCTION_DECL or ast_node.kind == CursorKind.CXX_METHOD:
+            name = self.qualify_name(ast_node)
+            self.callables_.add(name)
+            parent_node = ast_node
+        if ast_node.kind == CursorKind.CALL_EXPR and ast_node.referenced:
+            caller_name = self.qualify_name(parent_node)
+            callee_name = self.qualify_name(ast_node.referenced)
+            self.calls_of_[caller_name].append(callee_name)
         for child_ast_node in ast_node.get_children():
             self.build_tree_(ast_node=child_ast_node, parent_node=parent_node)
 
@@ -78,6 +79,14 @@ class ClangCallGraphAccess(object):
             if file_name.startswith(pattern):
                 return True
         return False
+
+    def qualify_name(self, ast_node):
+        if ast_node is None or type(ast_node) != Cursor or ast_node.kind == CursorKind.TRANSLATION_UNIT:
+            return ''
+        qualifier = self.qualify_name(ast_node.semantic_parent)
+        if qualifier != '':
+            qualifier += '::'
+        return qualifier + ast_node.displayname
 
 
 def filter_redundant_file_name_(file_name, command):

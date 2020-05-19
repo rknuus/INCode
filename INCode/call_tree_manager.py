@@ -15,7 +15,11 @@ class CallTreeManager(object):
             print('parsing {} with compiler arguments {}'.format(file, compiler_arguments))
             call_graph_access.parse_tu(tu_file_name=file, compiler_arguments=compiler_arguments,
                                        exclude_system_headers=exclude_system_headers)
-        call_tree = '{}\n'.format(entry_point)
-        for call in call_graph_access.get_calls_of(entry_point):
-            call_tree += '  {}\n'.format(call)
+        return self.dump_callable_(entry_point, 0, call_graph_access)
+
+    def dump_callable_(self, callable, level, call_graph_access):
+        indentation = level * '  '
+        call_tree = '{}{}\n'.format(indentation, callable)
+        for call in call_graph_access.get_calls_of(callable):
+            call_tree += self.dump_callable_(call, level + 1, call_graph_access)
         return call_tree

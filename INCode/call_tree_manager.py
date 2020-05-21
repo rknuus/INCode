@@ -8,6 +8,17 @@ class CallTreeManager(object):
     def __init__(self):
         super(CallTreeManager, self).__init__()
 
+    def open(self, file_name):
+        tu_access = ClangTUAccess(file_name=file_name)
+        return tu_access.files.keys()
+
+    def select_tu(self, file_name):
+        call_graph_access = ClangCallGraphAccess()
+        # TODO(KNR): extend by compiler_arguments, exclude_system_headers, and
+        # extra_arguments
+        call_graph_access.parse_tu(tu_file_name=file_name, compiler_arguments='')
+        return call_graph_access.callables
+
     def dump(self, file_name, entry_point, exclude_system_headers=False, extra_arguments=None):
         tu_access = ClangTUAccess(file_name=file_name, extra_arguments=extra_arguments)
         call_graph_access = ClangCallGraphAccess()

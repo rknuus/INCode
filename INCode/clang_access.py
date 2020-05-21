@@ -50,6 +50,10 @@ class ClangCallGraphAccess(object):
 
         self.build_tree_(ast_node=tu.cursor, parent_node=None)
 
+    @property
+    def callables(self):
+        return self.callables_
+
     def get_calls_of(self, callable):
         if callable not in self.callables_ or callable not in self.calls_of_:
             return []

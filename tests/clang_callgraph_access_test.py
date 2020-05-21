@@ -53,3 +53,11 @@ def test__given_file_with_syntax_error__parse_tu_throws():
     with generate_file('syntax-error.cpp', 'void f() {') as file_name:
         with pytest.raises(SyntaxError):
             access.parse_tu(tu_file_name=file_name, compiler_arguments='')
+
+
+def test__given_parsed_tu_with_one_function__callables_contains_one_item():
+    access = ClangCallGraphAccess()
+    with generate_file('syntax-error.cpp', 'void f() {}') as file_name:
+        access.parse_tu(tu_file_name=file_name, compiler_arguments='')
+    callables = access.callables
+    assert len(callables) == 1

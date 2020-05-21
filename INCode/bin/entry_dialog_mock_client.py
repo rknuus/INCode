@@ -27,13 +27,25 @@ def exit():
 
 
 @cli.command()
-@click.option('--file', prompt='Enter compilation database or source file to analyze')
-def set_file(file):
+@click.option('--file', prompt='Open compilation database or source file to analyze')
+def open(file):
     '''Set compilation database or source file to analyze'''
     global manager
-    manager.set_file(file)
-    # TODO(KNR): print TU list
-    # click.echo('NOT SUPPORTED: to exit press <CTRL>-D')
+    tu_list = manager.open(file)
+    assert tu_list
+    for i, tu in zip(range(len(tu_list)), tu_list):
+        click.echo('{}: {}\n'.format(i + 1, tu))
+
+
+@cli.command()
+@click.option('--file', prompt='Select translation unit to analyze')
+def select_tu(file):
+    '''Set translation unit to analyze'''
+    global manager
+    callable_list = manager.select_tu(file)
+    assert callable_list
+    for i, callable in zip(range(len(callable_list)), callable_list):
+        click.echo('{}: {}\n'.format(i + 1, callable))
 
 
 def clean_up_usage_message_(message, command):

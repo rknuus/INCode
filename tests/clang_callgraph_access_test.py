@@ -35,7 +35,7 @@ def test__given_recursive_function_call__parse_tu_contains_recursion():
 
 def test__given_non_existing_file__parse_tu_throws():
     access = ClangCallGraphAccess()
-    with pytest.raises(OSError):
+    with pytest.raises(FileNotFoundError):
         access.parse_tu(tu_file_name='a-file-that-doesnt-exist', compiler_arguments='')
 
 

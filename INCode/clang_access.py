@@ -109,7 +109,7 @@ class ClangTUAccess(object):
     '''Returns files and their compiler arguments from a compilation database.'''
     def __init__(self, file_name, extra_arguments=None):
         super(ClangTUAccess, self).__init__()
-        self.extra_arguments_ = extra_arguments or ''
+        self.extra_arguments_ = shlex.split(extra_arguments) if extra_arguments else []
         self.files_ = self.collect_files_(file_name)
 
     @property

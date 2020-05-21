@@ -22,19 +22,27 @@ def cli(ctx):
 
 @cli.command()
 def exit():
-    '''NOT SUPPORTED: Exit the program'''
+    '''NOT SUPPORTED: to exit press <CTRL>-D'''
     click.echo('NOT SUPPORTED: to exit press <CTRL>-D')
 
 
 @cli.command()
 @click.option('--file', prompt='Open compilation database or source file to analyze')
 def open(file):
-    '''Set compilation database or source file to analyze'''
+    '''Open compilation database or source file to analyze and print TUs'''
     global manager
     tu_list = manager.open(file)
     assert tu_list
     for i, tu in zip(range(len(tu_list)), tu_list):
         click.echo('{}: {}\n'.format(i + 1, tu))
+
+
+@cli.command()
+@click.option('--arguments', prompt='Set extra compiler arguments')
+def set_extra_arguments(arguments):
+    '''Set extra compiler arguments'''
+    global manager
+    manager.set_extra_arguments(arguments)
 
 
 @cli.command()

@@ -7,16 +7,26 @@ class CallTreeManager(object):
     ''' Manages call-tree related use cases '''
     def __init__(self):
         super(CallTreeManager, self).__init__()
+        self.extra_arguments_ = ''
+        self.tu_access_ = None
 
     def open(self, file_name):
-        tu_access = ClangTUAccess(file_name=file_name)
-        return tu_access.files.keys()
+        self.tu_access_ = ClangTUAccess(file_name=file_name, extra_arguments=self.extra_arguments_)
+        return self.tu_access_.files.keys()
+
+    def set_extra_arguments(self, extra_arguments):
+        # TODO(KNR): ensure that open is not yet called
+        self.extra_arguments_ = extra_arguments
 
     def select_tu(self, file_name):
+        # TODO(KNR): handle error if self.tu_access_ is None (i.e. open was not yet called)
+        if file_name not in self.tu_access_.files:
+            # TODO(KNR): handle error
+            pass
+        compiler_arguments = self.tu_access_.files[file_name]
         call_graph_access = ClangCallGraphAccess()
-        # TODO(KNR): extend by compiler_arguments, exclude_system_headers, and
-        # extra_arguments
-        call_graph_access.parse_tu(tu_file_name=file_name, compiler_arguments='')
+        # TODO(KNR): extend by exclude_system_headers
+        call_graph_access.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments)
         return call_graph_access.callables
 
     def dump(self, file_name, entry_point, exclude_system_headers=False, extra_arguments=None):

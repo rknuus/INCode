@@ -8,7 +8,7 @@ import pytest
 def test__given_file_without_compiler_arguments__return_file():
     with generate_file('file.cpp', '') as file_name:
         access = ClangTUAccess(file_name=file_name)
-        expected = {file_name: ''}
+        expected = {file_name: []}
     actual = access.files
     assert actual == expected
 
@@ -16,7 +16,7 @@ def test__given_file_without_compiler_arguments__return_file():
 def test__given_file_with_extra_compiler_arguments__return_file_and_args():
     with generate_file('file.cpp', '') as file_name:
         access = ClangTUAccess(file_name=file_name, extra_arguments='-std=c++11')
-        expected = {file_name: '-std=c++11'}
+        expected = {file_name: ['-std=c++11']}
     actual = access.files
     assert actual == expected
 

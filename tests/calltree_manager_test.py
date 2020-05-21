@@ -2,6 +2,7 @@
 
 from INCode.call_tree_manager import CallTreeManager
 from tests.test_environment_generation import generate_file
+import pytest
 
 
 def test_given_call_tree_depth_of_two__dump_returns_extected_output():
@@ -22,5 +23,15 @@ def test_given_source_file__open_returns_tu_list_with_one_item():
 def test_given_tu_with_one_function__select_tu_returns_list_with_one_item():
     manager = CallTreeManager()
     with generate_file('file.cpp', 'void f();') as file_name:
+        manager.open(file_name)
         callable_list = manager.select_tu(file_name)
     assert len(callable_list) == 1
+
+
+def test_given_werror_extra_argument_and_tu_with_unused_parameter__select_tu_fails():
+    manager = CallTreeManager()
+    manager.set_extra_arguments('-Werror -Wunused-parameter')
+    with generate_file('file.cpp', 'void f(int i) {}') as file_name:
+        with pytest.raises(SyntaxError):
+            manager.open(file_name)
+            manager.select_tu(file_name)

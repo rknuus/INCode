@@ -113,6 +113,9 @@ class ClangTUAccess(object):
         return self.files_
 
     def collect_files_(self, file_name):
+        if not path.exists(file_name):
+            raise FileNotFoundError(file_name)
+
         if not file_name.endswith('compile_commands.json'):
             # return {file_name: filter_redundant_file_name_(file_name, ' '.join(self.extra_arguments_))}
             return {file_name: self.extra_arguments_}

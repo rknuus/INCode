@@ -21,6 +21,7 @@ setup(
         'INCode'
     ],
     scripts=[
+        'INCode/bin/tui_client.py',
         'INCode/bin/call_tree_dumper.py'
     ],
     python_requires='>=3',

@@ -35,3 +35,12 @@ def test_given_werror_extra_argument_and_tu_with_unused_parameter__select_tu_fai
         with pytest.raises(SyntaxError):
             manager.open(file_name)
             manager.select_tu(file_name)
+
+
+def test_given_tu_with_include__select_tu_returns_only_callables_in_main_file():
+    manager = CallTreeManager()
+    with generate_file('include.h', 'void f() {}') as include_file_name:
+        with generate_file('main_file.cpp', '#include "{}"\nvoid g();'.format(include_file_name)) as main_file_name:
+            manager.open(main_file_name)
+            callable_list = manager.select_tu(main_file_name)
+    assert len(callable_list) == 1

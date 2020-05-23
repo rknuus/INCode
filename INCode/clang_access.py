@@ -18,11 +18,40 @@ clang_severity_str = {
 }
 
 
+def get_file_name(diag_or_ast_node):
+    if diag_or_ast_node is None or diag_or_ast_node.location is None or diag_or_ast_node.location.file is None:
+        return ''
+    return diag_or_ast_node.location.file.name
+
+
 def get_diagnostic_message(diag):
-    file = diag.location.file.name if diag.location.file else ''
+    file = get_file_name(diag)
     return '{}: {} in file {}, line {}, column {}'.format(
         clang_severity_str[diag.severity], diag.spelling,
         file, diag.location.line, diag.location.column)
+
+
+def qualify_name(cursor):
+    if cursor is None or type(cursor) != Cursor or cursor.kind == CursorKind.TRANSLATION_UNIT:
+        return ''
+    qualifier = qualify_name(cursor.semantic_parent)
+    if qualifier != '':
+        qualifier += '::'
+    return qualifier + cursor.displayname
+
+
+class Callable(object):
+    def __init__(self, cursor):
+        super(Callable, self).__init__()
+        self.cursor_ = cursor
+
+    @property
+    def name(self):
+        return qualify_name(self.cursor_)
+
+    @property
+    def file_name(self):
+        return get_file_name(self.cursor_)
 
 
 class ClangCallGraphAccess(object):
@@ -30,7 +59,7 @@ class ClangCallGraphAccess(object):
     def __init__(self):
         super(ClangCallGraphAccess, self).__init__()
         self.calls_of_ = defaultdict(list)
-        self.callables_ = set()
+        self.callables_ = dict()
 
     def parse_tu(self, tu_file_name, compiler_arguments, include_system_headers=False):
         if not path.exists(tu_file_name):
@@ -52,26 +81,32 @@ class ClangCallGraphAccess(object):
 
     @property
     def callables(self):
-        return self.callables_
+        return {name: Callable(callable) for name, callable in self.callables_.items()}
 
-    def get_calls_of(self, callable):
-        if callable not in self.callables_ or callable not in self.calls_of_:
+    def get_callable(self, callable_name):
+        return Callable(self.callables_[callable_name])
+
+    def get_callables_in(self, file_name):
+        return [Callable(callable) for callable in self.callables.values() if callable.file_name == file_name]
+
+    def get_calls_of(self, callable_name):
+        if callable_name not in self.calls_of_:
             return []
-        return self.calls_of_[callable]
+        return [Callable(child) for child in self.calls_of_[callable_name]]
 
-    def build_tree_(self, ast_node, parent_node):
-        if self.should_exclude_(ast_node.location.file):
-            return
+    def build_tree_(self, ast_node, parent_node, depth=0):
         if ast_node.kind == CursorKind.FUNCTION_DECL or ast_node.kind == CursorKind.CXX_METHOD:
-            name = self.qualify_name(ast_node)
-            self.callables_.add(name)
+            name = qualify_name(ast_node)
+            self.callables_[name] = ast_node
             parent_node = ast_node
         if ast_node.kind == CursorKind.CALL_EXPR and ast_node.referenced:
-            caller_name = self.qualify_name(parent_node)
-            callee_name = self.qualify_name(ast_node.referenced)
-            self.calls_of_[caller_name].append(callee_name)
+            caller_name = qualify_name(parent_node)
+            self.calls_of_[caller_name].append(ast_node.referenced)
+            callee_name = qualify_name(ast_node.referenced)
+            if callee_name not in self.callables_:
+                self.callables_[callee_name] = ast_node.referenced
         for child_ast_node in ast_node.get_children():
-            self.build_tree_(ast_node=child_ast_node, parent_node=parent_node)
+            self.build_tree_(ast_node=child_ast_node, parent_node=parent_node, depth=depth + 1)
 
     def get_system_header_include_prefixes_(self, compiler_arguments):
         # -isystem <path>
@@ -87,14 +122,6 @@ class ClangCallGraphAccess(object):
                 return True
         return False
 
-    def qualify_name(self, ast_node):
-        if ast_node is None or type(ast_node) != Cursor or ast_node.kind == CursorKind.TRANSLATION_UNIT:
-            return ''
-        qualifier = self.qualify_name(ast_node.semantic_parent)
-        if qualifier != '':
-            qualifier += '::'
-        return qualifier + ast_node.displayname
-
 
 def filter_redundant_file_name_(file_name, command):
     dash_c_option_pattern = re.compile('(-c\\s+{})'.format(file_name))
@@ -109,7 +136,15 @@ class ClangTUAccess(object):
     '''Returns files and their compiler arguments from a compilation database.'''
     def __init__(self, file_name, extra_arguments=None):
         super(ClangTUAccess, self).__init__()
-        self.extra_arguments_ = shlex.split(extra_arguments) if extra_arguments else []
+        # TODO(KNR): borked, don't want to perform type-check
+        args = extra_arguments
+        if isinstance(args, str):  # TODO(KNR): might not work for unicode?!
+            args = shlex.split(args)
+        elif type(args) == type(None):
+            args = []
+        else:
+            assert hasattr(args, '__iter__')
+        self.extra_arguments_ = args
         self.files_ = self.collect_files_(file_name)
 
     @property
@@ -129,6 +164,7 @@ class ClangTUAccess(object):
         # BORKED(KNR):
         # arbitrarily change to first directory to handle relative paths
         # which only works as long as all directories are identical
+        # TODO(KNR): add directory to dict and move chdir call to ClangCallGraphAccess.parse_tu
         if len(db) > 0 and 'directory' in db[0]:
             os.chdir(db[0]['directory'])
         # END BORKED

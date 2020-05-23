@@ -9,6 +9,7 @@ class CallTreeManager(object):
         super(CallTreeManager, self).__init__()
         self.extra_arguments_ = ''
         self.tu_access_ = None
+        self.call_graph_access_ = None
 
     def open(self, file_name):
         self.tu_access_ = ClangTUAccess(file_name=file_name, extra_arguments=self.extra_arguments_)
@@ -24,25 +25,30 @@ class CallTreeManager(object):
             # TODO(KNR): handle error
             pass
         compiler_arguments = self.tu_access_.files[file_name]
-        call_graph_access = ClangCallGraphAccess()
-        call_graph_access.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
-                                   include_system_headers=include_system_headers)
-        return call_graph_access.get_callables_in(file_name)
+        self.call_graph_access_ = ClangCallGraphAccess()
+        self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
+                                         include_system_headers=include_system_headers)
+        return self.call_graph_access_.get_callables_in(file_name)
+
+    def select_root(self, callable_name):
+        return self.call_graph_access_.get_callable(callable_name)
+
+    def get_calls_of(self, callable_name):
+        return self.call_graph_access_.get_calls_of(callable_name)
 
     def dump(self, file_name, entry_point, include_system_headers=False, extra_arguments=None):
         tu_access = ClangTUAccess(file_name=file_name, extra_arguments=extra_arguments)
-        call_graph_access = ClangCallGraphAccess()
+        self.call_graph_access_ = ClangCallGraphAccess()
         for file, compiler_arguments in tu_access.files.items():
             print('parsing {} with compiler arguments {}'.format(file, compiler_arguments))
-            call_graph_access.parse_tu(tu_file_name=file, compiler_arguments=compiler_arguments,
-                                       include_system_headers=include_system_headers)
-        # TODO(KNR): search callable with given name in given file
-        root = call_graph_access.get_callable(entry_point)
-        return self.dump_callable_(root, 0, call_graph_access)
+            self.call_graph_access_.parse_tu(tu_file_name=file, compiler_arguments=compiler_arguments,
+                                             include_system_headers=include_system_headers)
+        root = self.call_graph_access_.get_callable(entry_point)
+        return self.dump_callable_(root, 0)
 
-    def dump_callable_(self, callable, level, call_graph_access):
+    def dump_callable_(self, callable, level):
         indentation = level * '  '
         call_tree = '{}{}\n'.format(indentation, callable.name)
-        for call in call_graph_access.get_calls_of(callable.name):
-            call_tree += self.dump_callable_(call, level + 1, call_graph_access)
+        for call in self.call_graph_access_.get_calls_of(callable.name):
+            call_tree += self.dump_callable_(call, level + 1)
         return call_tree

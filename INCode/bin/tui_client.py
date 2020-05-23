@@ -57,10 +57,19 @@ def select_tu(file, include_system_headers):
         click.echo('{}: {}\n'.format(i + 1, callable.name))
 
 
+@cli.command()
+@click.option('--root', prompt='Select root callable of the diagram')
+def select_root(root):
+    '''Set root callable of the diagram'''
+    global manager
+    root_callable = manager.select_root(callable_name=root)
+    click.echo(manager.dump_callable_(root_callable, 0))
+
+
 def clean_up_usage_message_(message, command):
     '''Convert application help message into command help message.'''
     return re.sub('  --help\\s+Show this message and exit.', '\n',
-                  message.replace('Usage: entry_dialog_mock_client.py', '')
+                  message.replace('Usage: tui_client.py', '')  # TODO(KNR): parameterize script name
                          .replace('  help', command))
 
 

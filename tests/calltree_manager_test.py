@@ -44,3 +44,27 @@ def test_given_tu_with_include__select_tu_returns_only_callables_in_main_file():
             manager.open(main_file_name)
             callable_list = manager.select_tu(main_file_name)
     assert len(callable_list) == 1
+
+
+def test_given_tu_with_two_functions__get_calls_of_returns_one_callable():
+    manager = CallTreeManager()
+    with generate_file('file.cpp', 'void f();\nvoid g() { f(); }') as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+    unexpected_children = manager.get_calls_of('f()')
+    expected_children = manager.get_calls_of('g()')
+    assert len(unexpected_children) == 0
+    assert len(expected_children) == 1
+
+
+def test_given_tu_with_tree_three_functions_deep__tree_of_select_root_on_middle_function_has_depth_two():
+    manager = CallTreeManager()
+    content = 'void f();\nvoid g() { f(); }\nvoid h() { g(); }\n'
+    with generate_file('file.cpp', content) as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+        root = manager.select_root('g()')
+    children = manager.get_calls_of(root.name)
+    assert len(children) == 1
+    grand_children = manager.get_calls_of(children[0].name)
+    assert len(grand_children) == 0

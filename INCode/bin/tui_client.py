@@ -2,6 +2,7 @@
 
 from INCode.call_tree_manager import CallTreeManager
 from prompt_toolkit.history import FileHistory
+import appdirs
 import click
 import click_repl
 import os
@@ -10,6 +11,15 @@ import re
 
 global manager
 manager = CallTreeManager()
+global root_callable
+root_callable = None
+
+
+def clean_up_usage_message_(message, command):
+    '''Convert application help message into command help message.'''
+    return re.sub('  --help\\s+Show this message and exit.', '\n',
+                  message.replace('Usage: tui_client.py', '')  # TODO(KNR): parameterize script name
+                         .replace('  help', command))
 
 
 @click.group(invoke_without_command=True)
@@ -18,6 +28,22 @@ def cli(ctx):
     '''Pleasantries CLI'''
     if ctx.invoked_subcommand is None:
         ctx.invoke(repl)
+
+
+@cli.command()
+def repl():
+    '''Start interactive entry dialog mock'''
+    data_directory = appdirs.user_data_dir('INCode', 'rknuus')
+    if not os.path.isdir(data_directory):
+        try:
+            os.makedirs(data_directory)
+        except OSError:
+            print("Creation of the directory %s failed" % data_directory)
+            return
+    prompt_kwargs = {
+        'history': FileHistory('{}/.edmc_history.txt'.format(data_directory))
+    }
+    click_repl.repl(click.get_current_context(), prompt_kwargs=prompt_kwargs)
 
 
 @cli.command()
@@ -62,15 +88,29 @@ def select_tu(file, include_system_headers):
 def select_root(root):
     '''Set root callable of the diagram'''
     global manager
+    global root_callable
     root_callable = manager.select_root(callable_name=root)
-    click.echo(manager.dump_callable_(root_callable, 0))
+    click.echo(manager.dump_callable_(callable=root_callable, level=0))
 
 
-def clean_up_usage_message_(message, command):
-    '''Convert application help message into command help message.'''
-    return re.sub('  --help\\s+Show this message and exit.', '\n',
-                  message.replace('Usage: tui_client.py', '')  # TODO(KNR): parameterize script name
-                         .replace('  help', command))
+@cli.command()
+@click.option('--callable-name', prompt='Enter signature of callable to load')
+def load_definition(callable_name):
+    '''Enter signature of callable to load'''
+    if root_callable is None:
+        click.echo('Error: call "select_root" first')
+        return
+    global manager
+    manager.load_definition(callable_name=callable_name)
+    click.echo(manager.dump_callable_(callable=root_callable, level=0))
+
+
+@cli.command()
+def debug():
+    '''Enters debugger (which cannot be left anymore!)'''
+    global manager
+    from pdb import set_trace
+    set_trace()
 
 
 @cli.command()
@@ -79,15 +119,6 @@ def help():
     for command in cli.commands.keys():
         message = cli.commands[command].get_help(click.get_current_context())
         click.echo(clean_up_usage_message_(message, command))
-
-
-@cli.command()
-def repl():
-    '''Start interactive entry dialog mock'''
-    prompt_kwargs = {
-        'history': FileHistory(os.path.expanduser('/tmp/.edmc_history.txt'))
-    }
-    click_repl.repl(click.get_current_context(), prompt_kwargs=prompt_kwargs)
 
 
 if __name__ == '__main__':

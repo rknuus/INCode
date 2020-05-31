@@ -53,6 +53,12 @@ class Callable(object):
     def file_name(self):
         return get_file_name(self.cursor_)
 
+    def get_spelling(self):
+        return self.cursor_.spelling
+
+    def is_definition(self):
+        return self.cursor_.is_definition()
+
 
 class ClangCallGraphAccess(object):
     '''Constructs a call tree from given TUs.'''

@@ -1,6 +1,19 @@
 # Copyright (C) 2020 R. Knuus
 
 from INCode.clang_access import ClangCallGraphAccess, ClangTUAccess
+import os
+
+
+def find_text_in_file_(file_name, text):
+    with open(file_name) as file:
+        for line in file:
+            if text in line:
+                return True
+    return False
+
+
+def rate_path_commonality_(reference_name, other_name):
+    return len(os.path.commonpath([os.path.abspath(reference_name), os.path.abspath(other_name)]))
 
 
 class CallTreeManager(object):
@@ -10,6 +23,8 @@ class CallTreeManager(object):
         self.extra_arguments_ = ''
         self.tu_access_ = None
         self.call_graph_access_ = None
+        self.include_system_headers_ = False
+        self.loaded_files_ = set()
 
     def open(self, file_name):
         self.tu_access_ = ClangTUAccess(file_name=file_name, extra_arguments=self.extra_arguments_)
@@ -25,13 +40,29 @@ class CallTreeManager(object):
             # TODO(KNR): handle error
             pass
         compiler_arguments = self.tu_access_.files[file_name]
+        self.include_system_headers_ = include_system_headers
         self.call_graph_access_ = ClangCallGraphAccess()
         self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
                                          include_system_headers=include_system_headers)
+        self.loaded_files_.add(file_name)
         return self.call_graph_access_.get_callables_in(file_name)
 
     def select_root(self, callable_name):
+        # TODO(KNR): store as self.root_
         return self.call_graph_access_.get_callable(callable_name)
+
+    def load_definition(self, callable_name):
+        # TODO(KNR): ensure order of calls?!
+        # TODO(KNR): store include_system_headers passed to select_tu or pass it otherwise
+        # (e.g. to set_extra_arguments or as separate method)
+        for file_name, compiler_arguments in self.list_tu_candidates_(callable_name).items():
+            if file_name not in self.loaded_files_:
+                self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
+                                                 include_system_headers=self.include_system_headers_)
+                self.loaded_files_.add(file_name)
+                callable = self.call_graph_access_.get_callable(callable_name)
+                if callable and callable.is_definition():
+                    return
 
     def get_calls_of(self, callable_name):
         return self.call_graph_access_.get_calls_of(callable_name)
@@ -39,12 +70,29 @@ class CallTreeManager(object):
     def dump(self, file_name, entry_point, include_system_headers=False, extra_arguments=None):
         tu_access = ClangTUAccess(file_name=file_name, extra_arguments=extra_arguments)
         self.call_graph_access_ = ClangCallGraphAccess()
-        for file, compiler_arguments in tu_access.files.items():
-            print('parsing {} with compiler arguments {}'.format(file, compiler_arguments))
-            self.call_graph_access_.parse_tu(tu_file_name=file, compiler_arguments=compiler_arguments,
+        for file_name, compiler_arguments in tu_access.files.items():
+            self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
                                              include_system_headers=include_system_headers)
         root = self.call_graph_access_.get_callable(entry_point)
         return self.dump_callable_(root, 0)
+
+    def list_tu_candidates_(self, callable_name):
+        callable = self.call_graph_access_.get_callable(callable_name)
+        assert callable  # TODO(KNR): be nicer
+        if callable.is_definition():  # TODO(KNR): not sure whether required
+            return
+
+        search_key = callable.get_spelling()
+        tu_candidates = {file_name: compiler_arguments
+                         for file_name, compiler_arguments in self.tu_access_.files.items()
+                         if find_text_in_file_(file_name=file_name, text=search_key)}
+        used_in_file_name = callable.cursor_.translation_unit.spelling  # TODO(KNR): replace shortcut
+        # TODO(KNR): figure out how to avoid Decorate-Sort-Undecorate idiom
+        decorated = [(rate_path_commonality_(used_in_file_name, file_name), file_name, compiler_arguments)
+                     for file_name, compiler_arguments in tu_candidates.items()]
+        decorated.sort(reverse=True)
+        tu_candidates = {file_name: compiler_arguments for _, file_name, compiler_arguments in decorated}
+        return tu_candidates
 
     def dump_callable_(self, callable, level):
         indentation = level * '  '

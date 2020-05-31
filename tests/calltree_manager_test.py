@@ -68,3 +68,17 @@ def test_given_tu_with_tree_three_functions_deep__tree_of_select_root_on_middle_
     assert len(children) == 1
     grand_children = manager.get_calls_of(children[0].name)
     assert len(grand_children) == 0
+
+
+def test_given_tu_referencing_function_in_other_tu__load_definition_grows_call_tree():
+    manager = CallTreeManager()
+    with generate_file('g.cpp', 'extern void f();\nvoid g() { f(); }') as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+        root = manager.select_root('g()')
+    with generate_file('f.cpp', 'void f() { f(); }\n') as file_name:
+        manager.open(file_name)  # TODO(KNR): a hack, use a compilation DB instead
+        manager.load_definition('f()')
+    children = manager.get_calls_of(root.name)
+    grand_children = manager.get_calls_of(children[0].name)
+    assert len(grand_children) == 1

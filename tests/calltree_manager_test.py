@@ -82,3 +82,41 @@ def test_given_tu_referencing_function_in_other_tu__load_definition_grows_call_t
     children = manager.get_calls_of(root.name)
     grand_children = manager.get_calls_of(children[0].name)
     assert len(grand_children) == 1
+
+
+def test_given_no_callable_included__export_returns_empty_diagram():
+    manager = CallTreeManager()
+    with generate_file('file.cpp', 'void f();\nvoid g() { f(); }') as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+    manager.select_root('g()')
+    expected = '@startuml\n\n\n@enduml'
+    actual = manager.export()
+    assert actual == expected
+
+
+def test_given_two_functions_included__export_returns_diagram_with_call():
+    manager = CallTreeManager()
+    with generate_file('file.cpp', 'void f();\nvoid g() { f(); }') as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+    manager.select_root('g()')
+    manager.include('g()')
+    manager.include('f()')
+    expected = '@startuml\n\ng() -> f()\n@enduml'
+    actual = manager.export()
+    assert actual == expected
+
+
+def test_given_included_function_excluded_again__export_returns_diagram_with_call():
+    manager = CallTreeManager()
+    with generate_file('file.cpp', 'void f();\nvoid g() { f(); }') as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+    manager.select_root('g()')
+    manager.include('g()')
+    manager.include('f()')
+    manager.exclude('g()')
+    expected = '@startuml\n\n -> f()\n@enduml'
+    actual = manager.export()
+    assert actual == expected

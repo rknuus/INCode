@@ -26,6 +26,8 @@ class CallTreeManager(object):
         self.call_graph_access_ = None
         self.include_system_headers_ = False
         self.loaded_files_ = set()
+        self.included_ = set()
+        self.root_ = None
 
     def open(self, file_name):
         self.tu_access_ = ClangTUAccess(file_name=file_name, extra_arguments=self.extra_arguments_)
@@ -49,8 +51,8 @@ class CallTreeManager(object):
         return self.call_graph_access_.get_callables_in(file_name)
 
     def select_root(self, callable_name):
-        # TODO(KNR): store as self.root_
-        return self.call_graph_access_.get_callable(callable_name)
+        self.root_ = self.call_graph_access_.get_callable(callable_name)
+        return self.root_
 
     def load_definition(self, callable_name):
         # TODO(KNR): ensure order of calls?!
@@ -68,6 +70,30 @@ class CallTreeManager(object):
 
     def get_calls_of(self, callable_name):
         return self.call_graph_access_.get_calls_of(callable_name)
+
+    def include(self, callable_name):
+        self.included_.add(callable_name)
+
+    def exclude(self, callable_name):
+        self.included_.remove(callable_name)
+
+    def export(self):
+        call_tree = self.export_calls_(parent=self.root_, included_parent_name='')
+        return '@startuml\n\n{}\n@enduml'.format(call_tree)
+
+    def export_calls_(self, parent, included_parent_name):
+        call_tree = ''
+        if parent is None:
+            return call_tree
+        parent_name = included_parent_name
+        if parent.name in self.included_:
+            parent_name = parent.name
+        for call in self.call_graph_access_.get_calls_of(parent.name):
+            if call.name in self.included_:
+                call_tree += parent_name + ' -> ' + call.name
+        for call in self.call_graph_access_.get_calls_of(parent.name):
+            call_tree += self.export_calls_(parent=call, included_parent_name=parent_name)
+        return call_tree
 
     def dump(self, file_name, entry_point, include_system_headers=False, extra_arguments=None):
         tu_access = ClangTUAccess(file_name=file_name, extra_arguments=extra_arguments)

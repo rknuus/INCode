@@ -47,10 +47,11 @@ def set_extra_arguments(arguments):
 
 @cli.command()
 @click.option('--file', prompt='Select translation unit to analyze')
-def select_tu(file):
+@click.option('--include-system-headers', default=False, type=bool)
+def select_tu(file, include_system_headers):
     '''Set translation unit to analyze'''
     global manager
-    callable_list = manager.select_tu(file)
+    callable_list = manager.select_tu(file_name=file, include_system_headers=include_system_headers)
     assert callable_list
     for i, callable in zip(range(len(callable_list)), callable_list):
         click.echo('{}: {}\n'.format(i + 1, callable))

@@ -32,7 +32,7 @@ class ClangCallGraphAccess(object):
         self.calls_of_ = defaultdict(list)
         self.callables_ = set()
 
-    def parse_tu(self, tu_file_name, compiler_arguments, exclude_system_headers=False):
+    def parse_tu(self, tu_file_name, compiler_arguments, include_system_headers=False):
         if not path.exists(tu_file_name):
             raise FileNotFoundError(tu_file_name)
         index = Index.create()
@@ -45,7 +45,7 @@ class ClangCallGraphAccess(object):
             raise SyntaxError('\n'.join(error_messages))
 
         self.exclude_prefixes_ = []
-        if exclude_system_headers:
+        if not include_system_headers:
             self.exclude_prefixes_ = self.get_system_header_include_prefixes_(compiler_arguments)
 
         self.build_tree_(ast_node=tu.cursor, parent_node=None)

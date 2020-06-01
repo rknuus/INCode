@@ -6,9 +6,9 @@ from optparse import OptionParser
 
 def main():
     parser = OptionParser('usage: %prog [options] entry-point {file.cpp|compile_commands.json} [extra-clang-args*]')
-    parser.add_option('', '--exclude-system-headers', action="store_true",
-                      dest='exclude_system_headers', default=False,
-                      help='Exclude calls into system headers from the call-tree')
+    parser.add_option('', '--include-system-headers', action="store_true",
+                      dest='include_system_headers', default=False,
+                      help='Include calls into system headers from the call-tree')
     # parser.add_option('', '--max-depth', dest='maxDepth',
     #                   help='Limit cursor expansion to depth N',
     #                   metavar='N', type=int, default=None)
@@ -21,7 +21,7 @@ def main():
     manager = CallTreeManager()
     extra_arguments = args[2:] if len(args) > 2 else None
     print(manager.dump(entry_point=args[0], file_name=args[1],
-                       exclude_system_headers=opts.exclude_system_headers,
+                       include_system_headers=opts.include_system_headers,
                        extra_arguments=extra_arguments))
 
 

@@ -10,9 +10,7 @@ import os
 import re
 
 
-global manager
 manager = CallTreeManager()
-global root_callable
 root_callable = None
 view_model = TuiViewModel(manager)
 
@@ -58,7 +56,6 @@ def exit():
 @click.option('--file', prompt='Open compilation database or source file to analyze')
 def open(file):
     '''Open compilation database or source file to analyze and print TUs'''
-    global manager
     tu_list = manager.open(file)
     assert tu_list
     for i, tu in zip(range(len(tu_list)), tu_list):
@@ -69,7 +66,6 @@ def open(file):
 @click.option('--arguments', prompt='Set extra compiler arguments')
 def set_extra_arguments(arguments):
     '''Set extra compiler arguments'''
-    global manager
     manager.set_extra_arguments(arguments)
 
 
@@ -78,7 +74,6 @@ def set_extra_arguments(arguments):
 @click.option('--include-system-headers', default=False, type=bool)
 def select_tu(file, include_system_headers):
     '''Set translation unit to analyze'''
-    global manager
     callable_list = manager.select_tu(file_name=file, include_system_headers=include_system_headers)
     assert callable_list
     for i, callable in zip(range(len(callable_list)), callable_list):
@@ -89,8 +84,6 @@ def select_tu(file, include_system_headers):
 @click.option('--root', prompt='Select root callable of the diagram')
 def select_root(root):
     '''Set root callable of the diagram'''
-    global manager
-    global root_callable
     root_callable = manager.select_root(callable_name=root)
     view_model.set_root(root_callable)
     click.echo(view_model.view)
@@ -100,10 +93,6 @@ def select_root(root):
 @click.option('--callable-name', prompt='Enter signature of callable to load')
 def load_definition(callable_name):
     '''Enter signature of callable to load'''
-    if root_callable is None:
-        click.echo('Error: call "select_root" first')
-        return
-    global manager
     manager.load_definition(callable_name=callable_name)
     click.echo(view_model.view)
 
@@ -112,9 +101,6 @@ def load_definition(callable_name):
 @click.option('--callable-name', prompt='Enter signature of callable to include')
 def include(callable_name):
     '''Enter signature of callable to include'''
-    if root_callable is None:
-        click.echo('Error: call "select_root" first')
-        return
     manager.include(callable_name=callable_name)
     click.echo(view_model.view)
     # click.echo(manager.dump_callable_(callable=root_callable, level=0, print_selection=True))
@@ -123,7 +109,6 @@ def include(callable_name):
 @cli.command()
 def debug():
     '''Enters debugger (which cannot be left anymore!)'''
-    global manager
     from pdb import set_trace
     set_trace()
 

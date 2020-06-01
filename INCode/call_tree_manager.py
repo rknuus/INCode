@@ -1,6 +1,7 @@
 # Copyright (C) 2020 R. Knuus
 
 from INCode.clang_access import ClangCallGraphAccess, ClangTUAccess
+from pubsub import pub
 import os
 
 
@@ -62,6 +63,7 @@ class CallTreeManager(object):
                 self.loaded_files_.add(file_name)
                 callable = self.call_graph_access_.get_callable(callable_name)
                 if callable and callable.is_definition():
+                    pub.sendMessage('update_node_data', new_data=callable)
                     return
 
     def get_calls_of(self, callable_name):

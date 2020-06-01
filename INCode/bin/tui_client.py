@@ -1,6 +1,7 @@
 # Copyright (C) 2020 R. Knuus
 
 from INCode.call_tree_manager import CallTreeManager
+from INCode.tui import TuiViewModel
 from prompt_toolkit.history import FileHistory
 import appdirs
 import click
@@ -13,6 +14,7 @@ global manager
 manager = CallTreeManager()
 global root_callable
 root_callable = None
+view_model = TuiViewModel(manager)
 
 
 def clean_up_usage_message_(message, command):
@@ -90,7 +92,8 @@ def select_root(root):
     global manager
     global root_callable
     root_callable = manager.select_root(callable_name=root)
-    click.echo(manager.dump_callable_(callable=root_callable, level=0))
+    view_model.set_root(root_callable)
+    click.echo(view_model.view)
 
 
 @cli.command()
@@ -102,7 +105,19 @@ def load_definition(callable_name):
         return
     global manager
     manager.load_definition(callable_name=callable_name)
-    click.echo(manager.dump_callable_(callable=root_callable, level=0))
+    click.echo(view_model.view)
+
+
+@cli.command()
+@click.option('--callable-name', prompt='Enter signature of callable to include')
+def include(callable_name):
+    '''Enter signature of callable to include'''
+    if root_callable is None:
+        click.echo('Error: call "select_root" first')
+        return
+    manager.include(callable_name=callable_name)
+    click.echo(view_model.view)
+    # click.echo(manager.dump_callable_(callable=root_callable, level=0, print_selection=True))
 
 
 @cli.command()

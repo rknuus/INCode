@@ -4,6 +4,7 @@ from INCode.call_tree_manager import CallTreeManager
 from optparse import OptionParser
 
 
+# TODO(KNR): rewrite to use tui's view model
 def main():
     parser = OptionParser('usage: %prog [options] entry-point {file.cpp|compile_commands.json} [extra-clang-args*]')
     parser.add_option('', '--include-system-headers', action="store_true",

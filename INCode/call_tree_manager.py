@@ -73,9 +73,11 @@ class CallTreeManager(object):
 
     def include(self, callable_name):
         self.included_.add(callable_name)
+        pub.sendMessage('node_included', node_name=callable_name)
 
     def exclude(self, callable_name):
         self.included_.remove(callable_name)
+        pub.sendMessage('node_excluded', node_name=callable_name)
 
     def export(self):
         call_tree = self.export_calls_(parent=self.root_, included_parent_name='')
@@ -90,7 +92,7 @@ class CallTreeManager(object):
             parent_name = parent.name
         for call in self.call_graph_access_.get_calls_of(parent.name):
             if call.name in self.included_:
-                call_tree += parent_name + ' -> ' + call.name
+                call_tree += parent_name + ' -> ' + call.name + '\n'
         for call in self.call_graph_access_.get_calls_of(parent.name):
             call_tree += self.export_calls_(parent=call, included_parent_name=parent_name)
         return call_tree

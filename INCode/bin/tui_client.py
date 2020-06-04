@@ -103,7 +103,20 @@ def include(callable_name):
     '''Enter signature of callable to include'''
     manager.include(callable_name=callable_name)
     click.echo(view_model.view)
-    # click.echo(manager.dump_callable_(callable=root_callable, level=0, print_selection=True))
+
+
+@cli.command()
+@click.option('--callable-name', prompt='Enter signature of callable to include')
+def exclude(callable_name):
+    '''Enter signature of callable to exclude'''
+    manager.exclude(callable_name=callable_name)
+    click.echo(view_model.view)
+
+
+@cli.command()
+def export():
+    '''Export all included callables'''
+    click.echo(manager.export())
 
 
 @cli.command()

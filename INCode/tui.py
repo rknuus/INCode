@@ -12,7 +12,10 @@ class TuiViewModel(object):
         super(TuiViewModel, self).__init__()
         self.manager_ = manager  # TODO(KNR): probably required to fetch child nodes
         self.root_ = None
+        self.included_ = set()
         pub.subscribe(self.update_node_data, 'update_node_data')
+        pub.subscribe(self.node_included, 'node_included')
+        pub.subscribe(self.node_excluded, 'node_excluded')
 
     def set_root(self, root):
         self.root_ = Node(root.name, data=root)
@@ -22,7 +25,8 @@ class TuiViewModel(object):
     def view(self):
         tree = ''
         for pre, _, node in RenderTree(self.root_):
-            tree += ('%s%s\n' % (pre, node.name))
+            state = 'y' if node.name in self.included_ else ' '
+            tree += ('%s  %s%s\n' % (state, pre, node.name))
         return tree
 
     def build_tree_(self, parent):
@@ -37,3 +41,9 @@ class TuiViewModel(object):
         assert node
         node.data = new_data
         self.build_tree_(node)
+
+    def node_included(self, node_name):
+        self.included_.add(node_name)
+
+    def node_excluded(self, node_name):
+        self.included_.remove(node_name)

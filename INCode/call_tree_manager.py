@@ -17,6 +17,12 @@ def rate_path_commonality_(reference_name, other_name):
     return len(os.path.commonpath([os.path.abspath(reference_name), os.path.abspath(other_name)]))
 
 
+def quote(text):
+    if not text:
+        return text
+    return '"{}"'.format(text)
+
+
 class CallTreeManager(object):
     ''' Manages call-tree related use cases '''
     def __init__(self):
@@ -66,7 +72,7 @@ class CallTreeManager(object):
                 callable = self.call_graph_access_.get_callable(callable_name)
                 if callable and callable.is_definition():
                     pub.sendMessage('update_node_data', new_data=callable)
-                    return
+                    return callable  # TODO(KNR): by returning the new callable there is no need for sending a message
 
     def get_calls_of(self, callable_name):
         return self.call_graph_access_.get_calls_of(callable_name)
@@ -76,7 +82,8 @@ class CallTreeManager(object):
         pub.sendMessage('node_included', node_name=callable_name)
 
     def exclude(self, callable_name):
-        self.included_.remove(callable_name)
+        if callable_name in self.included_:
+            self.included_.remove(callable_name)
         pub.sendMessage('node_excluded', node_name=callable_name)
 
     def export(self):
@@ -92,7 +99,7 @@ class CallTreeManager(object):
             parent_name = parent.name
         for call in self.call_graph_access_.get_calls_of(parent.name):
             if call.name in self.included_:
-                call_tree += parent_name + ' -> ' + call.name + '\n'
+                call_tree += quote(parent_name) + ' -> ' + quote(call.name) + '\n'
         for call in self.call_graph_access_.get_calls_of(parent.name):
             call_tree += self.export_calls_(parent=call, included_parent_name=parent_name)
         return call_tree

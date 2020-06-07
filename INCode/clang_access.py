@@ -93,7 +93,7 @@ class ClangCallGraphAccess(object):
         return Callable(self.callables_[callable_name])
 
     def get_callables_in(self, file_name):
-        return [Callable(callable) for callable in self.callables.values() if callable.file_name == file_name]
+        return [callable for callable in self.callables.values() if callable.file_name == file_name]
 
     def get_calls_of(self, callable_name):
         if callable_name not in self.calls_of_:

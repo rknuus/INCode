@@ -103,7 +103,7 @@ def test_given_two_functions_included__export_returns_diagram_with_call():
     manager.select_root('g()')
     manager.include('g()')
     manager.include('f()')
-    expected = '@startuml\n\ng() -> f()\n\n@enduml'
+    expected = '@startuml\n\n"g()" -> "f()"\n\n@enduml'
     actual = manager.export()
     assert actual == expected
 
@@ -117,6 +117,6 @@ def test_given_included_function_excluded_again__export_returns_diagram_with_cal
     manager.include('g()')
     manager.include('f()')
     manager.exclude('g()')
-    expected = '@startuml\n\n -> f()\n\n@enduml'
+    expected = '@startuml\n\n -> "f()"\n\n@enduml'
     actual = manager.export()
     assert actual == expected

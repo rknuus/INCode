@@ -100,7 +100,6 @@ class CallTreeManager(object):
         for call in self.call_graph_access_.get_calls_of(parent.name):
             if call.name in self.included_:
                 call_tree += quote(parent_name) + ' -> ' + quote(call.name) + '\n'
-        for call in self.call_graph_access_.get_calls_of(parent.name):
             call_tree += self.export_calls_(parent=call, included_parent_name=parent_name)
         return call_tree
 

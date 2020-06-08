@@ -120,3 +120,18 @@ def test_given_included_function_excluded_again__export_returns_diagram_with_cal
     expected = '@startuml\n\n -> "f()"\n\n@enduml'
     actual = manager.export()
     assert actual == expected
+
+
+def test_given_call_graph_of_depth_two__functions_exported_depth_first():
+    manager = CallTreeManager()
+    with generate_file('file.cpp', 'void i();\nvoid h();\nvoid g() { h(); }\nvoid f() { g();\ni(); }') as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+    manager.select_root('f()')
+    manager.include('f()')
+    manager.include('g()')
+    manager.include('h()')
+    manager.include('i()')
+    expected = '@startuml\n\n"f()" -> "g()"\n"g()" -> "h()"\n"f()" -> "i()"\n\n@enduml'
+    actual = manager.export()
+    assert actual == expected

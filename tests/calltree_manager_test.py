@@ -103,7 +103,7 @@ def test_given_two_functions_included__export_returns_diagram_with_call():
     manager.select_root('g()')
     manager.include('g()')
     manager.include('f()')
-    expected = '@startuml\n\n"g()" -> "f()"\n\n@enduml'
+    expected = '@startuml\n\n -> "file.cpp": "g()"\n"file.cpp" -> "file.cpp": "f()"\n\n@enduml'
     actual = manager.export()
     assert actual == expected
 
@@ -117,7 +117,7 @@ def test_given_included_function_excluded_again__export_returns_diagram_with_cal
     manager.include('g()')
     manager.include('f()')
     manager.exclude('g()')
-    expected = '@startuml\n\n -> "f()"\n\n@enduml'
+    expected = '@startuml\n\n -> "file.cpp": "f()"\n\n@enduml'
     actual = manager.export()
     assert actual == expected
 
@@ -132,6 +132,19 @@ def test_given_call_graph_of_depth_two__functions_exported_depth_first():
     manager.include('g()')
     manager.include('h()')
     manager.include('i()')
-    expected = '@startuml\n\n"f()" -> "g()"\n"g()" -> "h()"\n"f()" -> "i()"\n\n@enduml'
+    expected = '@startuml\n\n -> "file.cpp": "f()"\n"file.cpp" -> "file.cpp": "g()"\n"file.cpp" -> "file.cpp": "h()"\n"file.cpp" -> "file.cpp": "i()"\n\n@enduml'
+    actual = manager.export()
+    assert actual == expected
+
+
+def test_given_methods_of_same_class__use_class_as_participant():
+    manager = CallTreeManager()
+    with generate_file('file.cpp', 'class Foo {\nvoid bar();\nvoid baz() { bar(); }\n};') as file_name:
+        manager.open(file_name)
+        manager.select_tu(file_name)
+    manager.select_root('Foo::baz()')
+    manager.include('Foo::baz()')
+    manager.include('Foo::bar()')
+    expected = '@startuml\n\n -> "Foo": "baz()"\n"Foo" -> "Foo": "bar()"\n\n@enduml'
     actual = manager.export()
     assert actual == expected

@@ -1,6 +1,6 @@
 # Copyright (C) 2020 R. Knuus
 
-from INCode.clang_access import ClangCallGraphAccess, ClangTUAccess
+from INCode.clang_access import ClangCallGraphAccess, ClangTUAccess, set_global_common_path
 from pubsub import pub
 import os
 
@@ -15,6 +15,15 @@ def find_text_in_file_(file_name, text):
 
 def rate_path_commonality_(reference_name, other_name):
     return len(os.path.commonpath([os.path.abspath(reference_name), os.path.abspath(other_name)]))
+
+
+def find_common_path(paths):
+    assert len(paths) > 0
+    if len(paths) == 1:
+        common_path = os.path.dirname(paths[0]) + '/'
+    else:
+        common_path = os.path.commonpath(os.path.abspath(p) for p in paths)
+    return common_path
 
 
 def quote(text):
@@ -37,6 +46,7 @@ class CallTreeManager(object):
 
     def open(self, file_name):
         self.tu_access_ = ClangTUAccess(file_name=file_name, extra_arguments=self.extra_arguments_)
+        set_global_common_path(find_common_path(list(self.tu_access_.files)))
         return self.tu_access_.files.keys()
 
     def set_extra_arguments(self, extra_arguments):
@@ -87,7 +97,11 @@ class CallTreeManager(object):
         pub.sendMessage('node_excluded', node_name=callable_name)
 
     def export(self):
-        call_tree = self.export_calls_(parent=self.root_, included_parent_name='')
+        # TODO(KNR): not sure whether it works for included-root at lower level
+        call_tree = ''
+        if self.root_.name in self.included_:
+            call_tree = ' -> ' + quote(self.root_.participant) + ': ' + quote(self.root_.callable) + '\n'
+        call_tree += self.export_calls_(parent=self.root_, included_parent_name='')
         return '@startuml\n\n{}\n@enduml'.format(call_tree)
 
     def export_calls_(self, parent, included_parent_name):
@@ -96,10 +110,10 @@ class CallTreeManager(object):
             return call_tree
         parent_name = included_parent_name
         if parent.name in self.included_:
-            parent_name = parent.name
+            parent_name = parent.participant
         for call in self.call_graph_access_.get_calls_of(parent.name):
             if call.name in self.included_:
-                call_tree += quote(parent_name) + ' -> ' + quote(call.name) + '\n'
+                call_tree += quote(parent_name) + ' -> ' + quote(call.participant) + ': ' + quote(call.callable) + '\n'
             call_tree += self.export_calls_(parent=call, included_parent_name=parent_name)
         return call_tree
 

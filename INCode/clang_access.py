@@ -9,6 +9,14 @@ import re
 import shlex
 
 
+GLOBAL_COMMON_PATH = ''
+
+
+def set_global_common_path(path):
+    global GLOBAL_COMMON_PATH
+    GLOBAL_COMMON_PATH = path
+
+
 clang_severity_str = {
     0: 'Ignored',
     1: 'Note',
@@ -52,6 +60,16 @@ class Callable(object):
     @property
     def file_name(self):
         return get_file_name(self.cursor_)
+
+    @property
+    def participant(self):
+        if self.cursor_.kind == CursorKind.FUNCTION_DECL:
+            return self.cursor_.translation_unit.spelling.replace(GLOBAL_COMMON_PATH, '')
+        return qualify_name(self.cursor_.semantic_parent)
+
+    @property
+    def callable(self):
+        return self.cursor_.displayname
 
     def get_spelling(self):
         return self.cursor_.spelling

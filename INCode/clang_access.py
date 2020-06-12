@@ -132,6 +132,7 @@ class ClangCallGraphAccess(object):
         for child_ast_node in ast_node.get_children():
             self.build_tree_(ast_node=child_ast_node, parent_node=parent_node, depth=depth + 1)
 
+    # TODO(KNR): include?! should be exclude, right?
     def get_system_header_include_prefixes_(self, compiler_arguments):
         # -isystem <path>
         exclude_prefixes = []

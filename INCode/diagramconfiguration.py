@@ -2,12 +2,11 @@
 
 from datetime import datetime
 from enum import IntEnum
-# from INCode.models import Index
 from INCode.ui_diagramconfiguration import Ui_DiagramConfiguration
 from os import path
 from plantweb.render import render
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem, QTreeWidgetItemIterator
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
 from requests import RequestException
 from threading import Thread
 import subprocess

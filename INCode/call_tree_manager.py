@@ -71,7 +71,6 @@ class CallTreeManager(object):
         return self.root_
 
     def load_definition(self, callable_name):
-        # TODO(KNR): ensure order of calls?!
         # TODO(KNR): store include_system_headers passed to select_tu or pass it otherwise
         # (e.g. to set_extra_arguments or as separate method)
         for file_name, compiler_arguments in self.list_tu_candidates_(callable_name).items():

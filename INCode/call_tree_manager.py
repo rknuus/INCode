@@ -100,7 +100,10 @@ class CallTreeManager(object):
         call_tree = ''
         if self.root_.name in self.included_:
             call_tree = ' -> ' + quote(self.root_.participant) + ': ' + self.root_.callable + '\n'
+            call_tree += 'activate {}\n'.format(quote(self.root_.participant))
         call_tree += self.export_calls_(parent=self.root_, included_parent_name='')
+        if self.root_.name in self.included_:
+            call_tree += 'deactivate {}\n'.format(quote(self.root_.participant))
         return '@startuml\n\n{}\n@enduml'.format(call_tree)
 
     def export_calls_(self, parent, included_parent_name):
@@ -113,7 +116,11 @@ class CallTreeManager(object):
         for call in self.call_graph_access_.get_calls_of(parent.name):
             if call.name in self.included_:
                 call_tree += quote(parent_name) + ' -> ' + quote(call.participant) + ': ' + call.callable + '\n'
+                # TODO(KNR): avoid redundant activations
+                call_tree += 'activate {}\n'.format(quote(call.participant))
             call_tree += self.export_calls_(parent=call, included_parent_name=parent_name)
+            if call.name in self.included_:
+                call_tree += 'deactivate {}\n'.format(quote(call.participant))
         return call_tree
 
     def dump(self, file_name, entry_point, include_system_headers=False, extra_arguments=None):

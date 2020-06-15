@@ -6,16 +6,33 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>745</width>
-    <height>498</height>
+    <width>849</width>
+    <height>589</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Entry Dialog</string>
   </property>
-  <layout class="QFormLayout" name="formLayout_">
+  <layout class="QFormLayout" name="form_layout_">
    <item row="0" column="0" colspan="2">
-    <layout class="QHBoxLayout" name="horizontalLayout_">
+    <layout class="QHBoxLayout" name="extra_args_box_">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetDefaultConstraint</enum>
+     </property>
+     <item>
+      <widget class="QLabel" name="extra_arguments_label_">
+       <property name="text">
+        <string>Extra arguments</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="extra_arguments_"/>
+     </item>
+    </layout>
+   </item>
+   <item row="1" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="db_box_">
      <item>
       <widget class="QLabel" name="compilation_database_label_">
        <property name="text">
@@ -35,49 +52,85 @@
      </item>
     </layout>
    </item>
-   <item row="1" column="0">
+   <item row="2" column="0">
+    <spacer name="vertical_args_entry_spacer_">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>4</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="3" column="0">
     <widget class="QLabel" name="entry_file_label_">
      <property name="text">
       <string>Entry file</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="0" colspan="2">
+   <item row="4" column="0" colspan="2">
     <widget class="QListView" name="entry_file_list_"/>
    </item>
-   <item row="3" column="0">
+   <item row="5" column="0">
     <widget class="QLabel" name="entry_point_label_">
      <property name="text">
       <string>Entry point</string>
      </property>
     </widget>
    </item>
-   <item row="4" column="0" colspan="2">
+   <item row="6" column="0" colspan="2">
     <widget class="QListView" name="entry_point_list_"/>
    </item>
-   <item row="5" column="1">
-    <widget class="QDialogButtonBox" name="buttonBox_">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+   <item row="7" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="outer_button_box_">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetFixedSize</enum>
      </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
+     <item>
+      <spacer name="horizontal_button_box_spacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>640</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QDialogButtonBox" name="button_box_">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="standardButtons">
+        <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+       </property>
+       <property name="centerButtons">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
  <resources/>
  <connections>
   <connection>
-   <sender>buttonBox_</sender>
+   <sender>button_box_</sender>
    <signal>accepted()</signal>
    <receiver>EntryDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>836</x>
+     <y>575</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -86,14 +139,14 @@
    </hints>
   </connection>
   <connection>
-   <sender>buttonBox_</sender>
+   <sender>button_box_</sender>
    <signal>rejected()</signal>
    <receiver>EntryDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>836</x>
+     <y>575</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>

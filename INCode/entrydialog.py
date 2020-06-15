@@ -28,37 +28,49 @@ class EntryDialog(QDialog, Ui_EntryDialog):
 
         self.manager_ = CallTreeManager()
 
-        # TODO(KNR): replace by user data
-        self.manager_.set_extra_arguments('-isystem /usr/local/opt/llvm/bin/../include/c++/v1 -isystem /usr/include/c++/v1 -isystem /usr/local/include -isystem /usr/local/Cellar/llvm/10.0.0_3/lib/clang/10.0.0/include -isystem /usr/include')
-
-        # self.db_ = None
+        self.browse_compilation_database_button_.clicked.connect(self.on_browse)
+        self.compilation_database_path_.editingFinished.connect(self.on_edit_db_path)
+        self.extra_arguments_.editingFinished.connect(self.on_edit_extra_args)
         self.entry_files_ = QStandardItemModel(self.entry_file_list_)
-        self.entry_points_ = QStandardItemModel(self.entry_point_list_)
-        self.browse_compilation_database_button_.clicked.connect(self.onBrowse)
         self.entry_file_list_.setModel(self.entry_files_)
         self.entry_file_selection_ = self.entry_file_list_.selectionModel()
-        self.entry_file_selection_.currentChanged.connect(self.onSelectEntryFile)
+        self.entry_file_selection_.currentChanged.connect(self.on_select_entry_file)
+        self.entry_points_ = QStandardItemModel(self.entry_point_list_)
 
-    # TODO(KNR): also support onEdit of self.compilation_database_path_
-    def onBrowse(self):
+    def on_edit_extra_args(self):
+        args = self.extra_arguments_.text()
+        self.manager_.set_extra_arguments(args)
+        if self.compilation_database_path_.text():
+            self.on_edit_db_path()
+
+    def on_browse(self):
         path = QFileDialog.getOpenFileName(self, 'Open compilation database', '', '*.json')
         if path and len(path) > 0:
             path = path[0]
             if not path:
                 return
-            compilation_database_directory = os.path.dirname(path)
-            os.chdir(compilation_database_directory)
-            self.compilation_database_path_.setText(path)
-            self.entry_points_.clear()
-            self.entry_files_.clear()
-            tu_list = self.manager_.open(path)
-            common_path = os.path.commonprefix(list(tu_list))
-            for tu in tu_list:
-                item = QStandardItem(tu.replace(common_path, ''))
-                item.setData(tu)
-                self.entry_files_.appendRow(item)
+            self.compilation_database_path_.setText(path)  # TODO(KNR): prevent double-event
+            self.set_db_path(path)
 
-    def onSelectEntryFile(self, current, previous):
+    def on_edit_db_path(self):
+        path = self.compilation_database_path_.text()
+        if not path:
+            return
+        self.set_db_path(path)
+
+    def set_db_path(self, db_path):
+        compilation_database_directory = os.path.dirname(db_path)
+        os.chdir(compilation_database_directory)
+        self.entry_points_.clear()
+        self.entry_files_.clear()
+        tu_list = self.manager_.open(db_path)
+        common_path = os.path.commonprefix(list(tu_list))
+        for tu in tu_list:
+            item = QStandardItem(tu.replace(common_path, ''))
+            item.setData(tu)
+            self.entry_files_.appendRow(item)
+
+    def on_select_entry_file(self, current, previous):
         if not current:
             return
         entry_file_path = self.entry_files_.item(current.row(), 0).data()

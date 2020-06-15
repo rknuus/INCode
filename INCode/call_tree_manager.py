@@ -44,14 +44,14 @@ class CallTreeManager(object):
         self.included_ = set()
         self.root_ = None
 
+    def set_extra_arguments(self, extra_arguments):
+        # TODO(KNR): ensure that open is not yet called
+        self.extra_arguments_ = extra_arguments
+
     def open(self, file_name):
         self.tu_access_ = ClangTUAccess(file_name=file_name, extra_arguments=self.extra_arguments_)
         set_global_common_path(find_common_path(list(self.tu_access_.files)))
         return self.tu_access_.files.keys()
-
-    def set_extra_arguments(self, extra_arguments):
-        # TODO(KNR): ensure that open is not yet called
-        self.extra_arguments_ = extra_arguments
 
     def select_tu(self, file_name, include_system_headers=False):
         # TODO(KNR): handle error if self.tu_access_ is None (i.e. open was not yet called)
@@ -99,7 +99,7 @@ class CallTreeManager(object):
         # TODO(KNR): not sure whether it works for included-root at lower level
         call_tree = ''
         if self.root_.name in self.included_:
-            call_tree = ' -> ' + quote(self.root_.participant) + ': ' + quote(self.root_.callable) + '\n'
+            call_tree = ' -> ' + quote(self.root_.participant) + ': ' + self.root_.callable + '\n'
         call_tree += self.export_calls_(parent=self.root_, included_parent_name='')
         return '@startuml\n\n{}\n@enduml'.format(call_tree)
 
@@ -112,7 +112,7 @@ class CallTreeManager(object):
             parent_name = parent.participant
         for call in self.call_graph_access_.get_calls_of(parent.name):
             if call.name in self.included_:
-                call_tree += quote(parent_name) + ' -> ' + quote(call.participant) + ': ' + quote(call.callable) + '\n'
+                call_tree += quote(parent_name) + ' -> ' + quote(call.participant) + ': ' + call.callable + '\n'
             call_tree += self.export_calls_(parent=call, included_parent_name=parent_name)
         return call_tree
 

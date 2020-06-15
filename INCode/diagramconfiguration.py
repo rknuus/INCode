@@ -97,6 +97,7 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
 
     def export(self):
         content = self.generate_uml()
+        # TODO(KNR): open "Save As" dialog and ask where to save file
         self.load_svg_view(content)
 
     def toggle_preview(self):

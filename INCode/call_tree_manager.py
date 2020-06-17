@@ -1,7 +1,6 @@
 # Copyright (C) 2020 R. Knuus
 
 from INCode.clang_access import ClangCallGraphAccess, ClangTUAccess, set_global_common_path
-from pubsub import pub
 import os
 
 
@@ -80,20 +79,17 @@ class CallTreeManager(object):
                 self.loaded_files_.add(file_name)
                 callable = self.call_graph_access_.get_callable(callable_name)
                 if callable and callable.is_definition():
-                    pub.sendMessage('update_node_data', new_data=callable)
-                    return callable  # TODO(KNR): by returning the new callable there is no need for sending a message
+                    return callable
 
     def get_calls_of(self, callable_name):
         return self.call_graph_access_.get_calls_of(callable_name)
 
     def include(self, callable_name):
         self.included_.add(callable_name)
-        pub.sendMessage('node_included', node_name=callable_name)
 
     def exclude(self, callable_name):
         if callable_name in self.included_:
             self.included_.remove(callable_name)
-        pub.sendMessage('node_excluded', node_name=callable_name)
 
     def export(self):
         # TODO(KNR): not sure whether it works for included-root at lower level

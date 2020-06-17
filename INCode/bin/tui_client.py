@@ -93,7 +93,8 @@ def select_root(root):
 @click.option('--callable-name', prompt='Enter signature of callable to load')
 def load_definition(callable_name):
     '''Enter signature of callable to load'''
-    manager.load_definition(callable_name=callable_name)
+    callable = manager.load_definition(callable_name=callable_name)
+    view_model.update_node_data(callable)
     click.echo(view_model.view)
 
 
@@ -102,6 +103,7 @@ def load_definition(callable_name):
 def include(callable_name):
     '''Enter signature of callable to include'''
     manager.include(callable_name=callable_name)
+    view_model.node_included(node_name=callable_name)
     click.echo(view_model.view)
 
 
@@ -110,6 +112,7 @@ def include(callable_name):
 def exclude(callable_name):
     '''Enter signature of callable to exclude'''
     manager.exclude(callable_name=callable_name)
+    view_model.node_excluded(node_name=callable_name)
     click.echo(view_model.view)
 
 

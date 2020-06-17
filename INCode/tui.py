@@ -3,7 +3,6 @@
 from anytree import Node, RenderTree
 from anytree.search import find
 from INCode.call_tree_manager import CallTreeManager
-from pubsub import pub
 
 
 class TuiViewModel(object):
@@ -13,9 +12,6 @@ class TuiViewModel(object):
         self.manager_ = manager  # TODO(KNR): probably required to fetch child nodes
         self.root_ = None
         self.included_ = set()
-        pub.subscribe(self.update_node_data, 'update_node_data')
-        pub.subscribe(self.node_included, 'node_included')
-        pub.subscribe(self.node_excluded, 'node_excluded')
 
     def set_root(self, root):
         self.root_ = Node(root.name, data=root)

@@ -26,7 +26,7 @@ setup(
     ],
     python_requires='>=3',
     install_requires=[
-        'appdirs', 'anytree', 'clang>=6.0', 'plantweb', 'pypubsub', 'requests'
+        'appdirs', 'anytree', 'clang>=6.0', 'plantweb', 'requests'
     ],
     classifiers=[
         'Intended Audience :: Developers', 'Natural Language :: English', 'Programming Language :: Python :: 3'

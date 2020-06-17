@@ -7,6 +7,7 @@ from os import path
 from plantweb.render import render
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem
+from PyQt5.QtWidgets import QFileDialog
 from requests import RequestException
 from threading import Thread
 import subprocess
@@ -96,9 +97,14 @@ class DiagramConfiguration(QMainWindow, Ui_DiagramConfiguration):
                 self.load_view_signal.emit(content)
 
     def export(self):
-        content = self.generate_uml()
-        # TODO(KNR): open "Save As" dialog and ask where to save file
-        self.load_svg_view(content)
+        # TODO(KNR): support other file formats by appending ;;SVG file (*.svg);;PNG file (*.png)
+        # to the last argument
+        path, _ = QFileDialog.getSaveFileName(self, 'Export diagram', '', 'Plantuml file (*.plantuml)')
+        if not path:
+            return
+        content = self.manager_.export()
+        with open(path, 'w') as file:
+            file.write(content)
 
     def toggle_preview(self):
         if self.svg_view_.isVisible():

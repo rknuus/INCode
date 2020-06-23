@@ -51,11 +51,11 @@ Optionally set extra compiler arguments. For reasons I don't understand, yet, th
 
 At first, you have to select the [compilation database (json)](https://clang.llvm.org/docs/JSONCompilationDatabase.html) of the c++ code you want to analyze.
 
-![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/open_compilation_database.png?raw=true)
+![open_compilation_database](https://github.com/rknuus/INCode/blob/master/doc/open_compilation_database.png?raw=true)
 
 Afterwards, all cpp files from the project should show up. From this list you can choose your wanted entry file.
 
-![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/select_tu_and_entry_point.png?raw=true)
+![select_tu_and_entry_point](https://github.com/rknuus/INCode/blob/master/doc/select_tu_and_entry_point.png?raw=true)
 
 Once that is done, you should be able to see all callables from the entry file, from where you can select entry point and click `OK`.
 
@@ -64,11 +64,11 @@ The diagram configuration window shows up right after the selection of the entry
 
 Your entry point is the root of the tree view. From there you can start to reveal the child callables from the functions.
 
-![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/interactively_select_calls_to_export.png?raw=true)
+![interactively_select_calls_to_export](https://github.com/rknuus/INCode/blob/master/doc/interactively_select_calls_to_export.png?raw=true)
 
 All children in the same translation unit as the root node are already loaded. To load definitions of callables in other translation units you can either go to `Actions -> Reveal Children` or just use the shortcut `Ctrl + R`.
 
-![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/lazy_load_definitions.png?raw=true)
+![lazy_load_definitions](https://github.com/rknuus/INCode/blob/master/doc/lazy_load_definitions.png?raw=true)
 
 Every node has a checkbox that you have to check for every callable that you'd like to include into the diagram (shortcut: `Space`).
 

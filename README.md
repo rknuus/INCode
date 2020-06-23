@@ -47,15 +47,15 @@ The first window that will popup is the entry dialog. The purpose of this window
 
 Optionally set extra compiler arguments. For reasons I don't understand, yet, the [compilation database (json)](https://clang.llvm.org/docs/JSONCompilationDatabase.html) might not contain the complete set of compiler arguments, particularly the internal include directories might be missing. To figure out necessary extra arguments I had to make `ninja` print compiler calls and add `-v` to the C++ compiler options.
 
-![set_optional_extra_args](/doc/set_optional_extra_args.png)
+![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/set_optional_extra_args.png?raw=true)
 
 At first, you have to select the [compilation database (json)](https://clang.llvm.org/docs/JSONCompilationDatabase.html) of the c++ code you want to analyze.
 
-![set_optional_extra_args](/doc/open_compilation_database.png)
+![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/open_compilation_database.png?raw=true)
 
 Afterwards, all cpp files from the project should show up. From this list you can choose your wanted entry file.
 
-![set_optional_extra_args](/doc/select_tu_and_entry_point.png)
+![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/select_tu_and_entry_point.png?raw=true)
 
 Once that is done, you should be able to see all callables from the entry file, from where you can select entry point and click `OK`.
 
@@ -64,11 +64,11 @@ The diagram configuration window shows up right after the selection of the entry
 
 Your entry point is the root of the tree view. From there you can start to reveal the child callables from the functions.
 
-![set_optional_extra_args](/doc/interactively_select_calls_to_export.png)
+![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/interactively_select_calls_to_export.png?raw=true)
 
 All children in the same translation unit as the root node are already loaded. To load definitions of callables in other translation units you can either go to `Actions -> Reveal Children` or just use the shortcut `Ctrl + R`.
 
-![set_optional_extra_args](/doc/lazy_load_definitions.png)
+![set_optional_extra_args](https://github.com/rknuus/INCode/blob/master/doc/lazy_load_definitions.png?raw=true)
 
 Every node has a checkbox that you have to check for every callable that you'd like to include into the diagram (shortcut: `Space`).
 

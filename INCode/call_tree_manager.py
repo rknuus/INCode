@@ -54,13 +54,14 @@ class CallTreeManager(object):
         self.root_ = None
         self.state_ = CallTreeManagerState.INITIALIZED
 
-    def set_extra_arguments(self, extra_arguments):
+    def set_extra_arguments(self, extra_arguments, include_system_headers=False):
         if self.state_ not in [CallTreeManagerState.INITIALIZED,
                                CallTreeManagerState.EXTRA_ARGUMENTS_INITIALIZED]:
             warnings.warn('Unsupported state transition from {} to {}'.format(
                 self.state_, CallTreeManagerState.EXTRA_ARGUMENTS_INITIALIZED))
             return
         self.extra_arguments_ = extra_arguments
+        self.include_system_headers_ = include_system_headers
         self.state_ = CallTreeManagerState.EXTRA_ARGUMENTS_INITIALIZED
 
     def open(self, file_name):
@@ -70,12 +71,13 @@ class CallTreeManager(object):
             warnings.warn('Unsupported state transition from {} to {}'.format(
                 self.state_, CallTreeManagerState.READY_TO_SELECT_TU))
             return
-        self.tu_access_ = ClangTUAccess(file_name=file_name, extra_arguments=self.extra_arguments_)
+        self.tu_access_ = ClangTUAccess(file_name=file_name,
+                                        extra_arguments=self.extra_arguments_)
         set_global_common_path(find_common_path(list(self.tu_access_.files)))
         self.state_ = CallTreeManagerState.READY_TO_SELECT_TU
         return self.tu_access_.files.keys()
 
-    def select_tu(self, file_name, include_system_headers=False):
+    def select_tu(self, file_name):
         if self.state_ not in [CallTreeManagerState.READY_TO_SELECT_TU,
                                CallTreeManagerState.READY_TO_SELECT_ROOT]:
             warnings.warn('Unsupported state transition from {} to {}'.format(
@@ -85,10 +87,8 @@ class CallTreeManager(object):
             warnings.warn('File {} not found in compilation database'.format(file_name))
             return
         compiler_arguments = self.tu_access_.files[file_name]
-        self.include_system_headers_ = include_system_headers
-        self.call_graph_access_ = ClangCallGraphAccess()
-        self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
-                                         include_system_headers=include_system_headers)
+        self.call_graph_access_ = ClangCallGraphAccess(include_system_headers=self.include_system_headers_)
+        self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments)
         self.loaded_files_.add(file_name)
         self.state_ = CallTreeManagerState.READY_TO_SELECT_ROOT
         return self.call_graph_access_.get_callables_in(file_name)
@@ -104,12 +104,9 @@ class CallTreeManager(object):
         return self.root_
 
     def load_definition(self, callable_name):
-        # TODO(KNR): store include_system_headers passed to select_tu or pass it otherwise
-        # (e.g. to set_extra_arguments or as separate method)
         for file_name, compiler_arguments in self.list_tu_candidates_(callable_name).items():
             if file_name not in self.loaded_files_:
-                self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
-                                                 include_system_headers=self.include_system_headers_)
+                self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments)
                 self.loaded_files_.add(file_name)
                 callable = self.call_graph_access_.get_callable(callable_name)
                 if callable and callable.is_definition():
@@ -126,7 +123,6 @@ class CallTreeManager(object):
             self.included_.remove(callable_name)
 
     def export(self):
-        # TODO(KNR): not sure whether it works for included-root at lower level
         call_tree = ''
         if self.root_.name in self.included_:
             call_tree = ' -> ' + quote(self.root_.participant) + ': ' + self.root_.callable + '\n'
@@ -155,26 +151,22 @@ class CallTreeManager(object):
 
     def dump(self, file_name, entry_point, include_system_headers=False, extra_arguments=None):
         tu_access = ClangTUAccess(file_name=file_name, extra_arguments=extra_arguments)
-        self.call_graph_access_ = ClangCallGraphAccess()
+        self.call_graph_access_ = ClangCallGraphAccess(include_system_headers=include_system_headers)
         for file_name, compiler_arguments in tu_access.files.items():
-            self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments,
-                                             include_system_headers=include_system_headers)
+            self.call_graph_access_.parse_tu(tu_file_name=file_name, compiler_arguments=compiler_arguments)
         root = self.call_graph_access_.get_callable(entry_point)
         return self.dump_callable_(root, 0)
 
     def list_tu_candidates_(self, callable_name):
         callable = self.call_graph_access_.get_callable(callable_name)
         assert callable  # TODO(KNR): be nicer
-        if callable.is_definition():  # TODO(KNR): not sure whether required
-            return
 
         search_key = callable.get_spelling()
         tu_candidates = {file_name: compiler_arguments
                          for file_name, compiler_arguments in self.tu_access_.files.items()
                          if find_text_in_file_(file_name=file_name, text=search_key)}
-        used_in_file_name = callable.cursor_.translation_unit.spelling  # TODO(KNR): replace shortcut
         # TODO(KNR): figure out how to avoid Decorate-Sort-Undecorate idiom
-        decorated = [(rate_path_commonality_(used_in_file_name, file_name), file_name, compiler_arguments)
+        decorated = [(rate_path_commonality_(callable.used_in_file, file_name), file_name, compiler_arguments)
                      for file_name, compiler_arguments in tu_candidates.items()]
         decorated.sort(reverse=True)
         tu_candidates = {file_name: compiler_arguments for _, file_name, compiler_arguments in decorated}

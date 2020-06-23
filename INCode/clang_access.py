@@ -15,6 +15,8 @@ GLOBAL_COMMON_PATH = ''
 def set_global_common_path(path):
     global GLOBAL_COMMON_PATH
     GLOBAL_COMMON_PATH = path
+    if GLOBAL_COMMON_PATH and GLOBAL_COMMON_PATH[-1] != '/':
+        GLOBAL_COMMON_PATH += '/'
 
 
 clang_severity_str = {
@@ -62,9 +64,13 @@ class Callable(object):
         return get_file_name(self.cursor_)
 
     @property
+    def used_in_file(self):
+        return self.cursor_.translation_unit.spelling
+
+    @property
     def participant(self):
         if self.cursor_.kind == CursorKind.FUNCTION_DECL:
-            return self.cursor_.translation_unit.spelling.replace(GLOBAL_COMMON_PATH, '')
+            return self.used_in_file.replace(GLOBAL_COMMON_PATH, '')
         return qualify_name(self.cursor_.semantic_parent)
 
     @property
@@ -80,12 +86,13 @@ class Callable(object):
 
 class ClangCallGraphAccess(object):
     '''Constructs a call tree from given TUs.'''
-    def __init__(self):
+    def __init__(self, include_system_headers=False):
         super(ClangCallGraphAccess, self).__init__()
         self.calls_of_ = defaultdict(list)
         self.callables_ = dict()
+        self.include_system_headers_ = include_system_headers
 
-    def parse_tu(self, tu_file_name, compiler_arguments, include_system_headers=False):
+    def parse_tu(self, tu_file_name, compiler_arguments):
         if not path.exists(tu_file_name):
             raise FileNotFoundError(tu_file_name)
         index = Index.create()
@@ -98,8 +105,8 @@ class ClangCallGraphAccess(object):
             raise SyntaxError('\n'.join(error_messages))
 
         self.exclude_prefixes_ = []
-        if not include_system_headers:
-            self.exclude_prefixes_ = self.get_system_header_include_prefixes_(compiler_arguments)
+        if not self.include_system_headers_:
+            self.exclude_prefixes_ = self.get_system_header_exclude_prefixes_(compiler_arguments)
 
         self.build_tree_(ast_node=tu.cursor, parent_node=None)
 
@@ -132,8 +139,7 @@ class ClangCallGraphAccess(object):
         for child_ast_node in ast_node.get_children():
             self.build_tree_(ast_node=child_ast_node, parent_node=parent_node, depth=depth + 1)
 
-    # TODO(KNR): include?! should be exclude, right?
-    def get_system_header_include_prefixes_(self, compiler_arguments):
+    def get_system_header_exclude_prefixes_(self, compiler_arguments):
         # -isystem <path>
         exclude_prefixes = []
         for i in range(len(compiler_arguments)-1):
@@ -161,14 +167,8 @@ class ClangTUAccess(object):
     '''Returns files and their compiler arguments from a compilation database.'''
     def __init__(self, file_name, extra_arguments=None):
         super(ClangTUAccess, self).__init__()
-        # TODO(KNR): borked, don't want to perform type-check
-        args = extra_arguments
-        if isinstance(args, str):  # TODO(KNR): might not work for unicode?!
-            args = shlex.split(args)
-        elif type(args) == type(None):
-            args = []
-        else:
-            assert hasattr(args, '__iter__')
+        args = extra_arguments or ''
+        args = shlex.split(args)
         self.extra_arguments_ = args
         self.files_ = self.collect_files_(file_name)
 
@@ -179,19 +179,24 @@ class ClangTUAccess(object):
     def collect_files_(self, file_name):
         if not path.exists(file_name):
             raise FileNotFoundError(file_name)
-
         if not file_name.endswith('compile_commands.json'):
-            # return {file_name: filter_redundant_file_name_(file_name, ' '.join(self.extra_arguments_))}
+            # TODO(KNR): might have to filter redundant file name from compiler arguments
             return {file_name: self.extra_arguments_}
+
         with open(file_name) as compdb:
             db = json.load(compdb)
         extra = self.extra_arguments_ if self.extra_arguments_ else []
-        # BORKED(KNR):
+
         # arbitrarily change to first directory to handle relative paths
         # which only works as long as all directories are identical
-        # TODO(KNR): add directory to dict and move chdir call to ClangCallGraphAccess.parse_tu
+        # so verify that this is the case
         if len(db) > 0 and 'directory' in db[0]:
-            os.chdir(db[0]['directory'])
-        # END BORKED
+            directory = db[0]['directory']
+            all_directories = {item['directory'] for item in db}
+            # if the following assertion fails not all directories are identical
+            # we have to change directories on a per-file basis
+            assert len(all_directories) == 1
+            os.chdir(directory)
+
         return {entry['file']: filter_redundant_file_name_(entry['file'], shlex.split(entry['command']) + extra)
                 for entry in db}

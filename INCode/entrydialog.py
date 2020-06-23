@@ -1,6 +1,6 @@
 # Copyright (C) 2020 R. Knuus
 
-from INCode.call_tree_manager import CallTreeManager
+from INCode.call_tree_manager import CallTreeManager, CallTreeManagerState
 from INCode.diagramconfiguration import DiagramConfiguration
 from INCode.ui_entrydialog import Ui_EntryDialog
 from PyQt5.QtGui import QStandardItem, QStandardItemModel
@@ -39,6 +39,7 @@ class EntryDialog(QDialog, Ui_EntryDialog):
 
     def on_edit_extra_args(self):
         args = self.extra_arguments_.text()
+        self.manager_.state_ = CallTreeManagerState.INITIALIZED  # TODO(KNR): yuck
         self.manager_.set_extra_arguments(args)
         if self.compilation_database_path_.text():
             self.on_edit_db_path()

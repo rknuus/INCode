@@ -9,7 +9,7 @@ class TuiViewModel(object):
     '''Maintains a view model based on pub/sub updated from actual data model.'''
     def __init__(self, manager):
         super(TuiViewModel, self).__init__()
-        self.manager_ = manager  # TODO(KNR): probably required to fetch child nodes
+        self.manager_ = manager
         self.root_ = None
         self.included_ = set()
 

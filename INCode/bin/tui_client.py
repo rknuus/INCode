@@ -18,7 +18,7 @@ view_model = TuiViewModel(manager)
 def clean_up_usage_message_(message, command):
     '''Convert application help message into command help message.'''
     return re.sub('  --help\\s+Show this message and exit.', '\n',
-                  message.replace('Usage: tui_client.py', '')  # TODO(KNR): parameterize script name
+                  message.replace('Usage: {}'.format(os.path.basename(__file__)), '')
                          .replace('  help', command))
 
 

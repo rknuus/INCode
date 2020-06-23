@@ -5,7 +5,6 @@ Interactive diagram generator from C++ code. Combine human intelligence to selec
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ## Dependencies
-
 ### Using a stretch container
 If you're using a stretch container, you have to add the repository for the right libclang version first:
 ```bash
@@ -46,9 +45,17 @@ Start INCode: `LD_LIBRARY_PATH=/usr/lib/llvm-6.0/lib python3 INCode/bin/INCode`
 ### Entry Dialog
 The first window that will popup is the entry dialog. The purpose of this window is to select your starting point.
 
+Optionally set extra compiler arguments. For reasons I don't understand, yet, the [compilation database (json)](https://clang.llvm.org/docs/JSONCompilationDatabase.html) might not contain the complete set of compiler arguments, particularly the internal include directories might be missing. To figure out necessary extra arguments I had to make `ninja` print compiler calls and add `-v` to the C++ compiler options.
+
+![set_optional_extra_args](/doc/set_optional_extra_args.png)
+
 At first, you have to select the [compilation database (json)](https://clang.llvm.org/docs/JSONCompilationDatabase.html) of the c++ code you want to analyze.
 
+![set_optional_extra_args](/doc/open_compilation_database.png)
+
 Afterwards, all cpp files from the project should show up. From this list you can choose your wanted entry file.
+
+![set_optional_extra_args](/doc/select_tu_and_entry_point.png)
 
 Once that is done, you should be able to see all callables from the entry file, from where you can select entry point and click `OK`.
 
@@ -56,7 +63,12 @@ Once that is done, you should be able to see all callables from the entry file, 
 The diagram configuration window shows up right after the selection of the entry point and is the main window of this application.
 
 Your entry point is the root of the tree view. From there you can start to reveal the child callables from the functions.
-The reveal of the root node is already done by the application. Now you can either go to `Actions -> Reveal Children` or just use the shortcut `Ctrl + R`.
+
+![set_optional_extra_args](/doc/interactively_select_calls_to_export.png)
+
+All children in the same translation unit as the root node are already loaded. To load definitions of callables in other translation units you can either go to `Actions -> Reveal Children` or just use the shortcut `Ctrl + R`.
+
+![set_optional_extra_args](/doc/lazy_load_definitions.png)
 
 Every node has a checkbox that you have to check for every callable that you'd like to include into the diagram (shortcut: `Space`).
 
@@ -66,8 +78,8 @@ As soon as you have every wanted callable checked, you can export the diagram us
 
 #### Export
 After the export function of the diagram configuration window you should see the export output in the console.
-You can copy the content into a file and then the following command:
-`plantuml <file>`
+
+Finally you can convert the exported file to a PNG image with the following command: `plantuml <file>`.
 
 After that the UML diagram should be generated as `<file>.png`.
 

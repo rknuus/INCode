@@ -9,7 +9,7 @@ except ImportError:
 
 setup(
     name='INCode',
-    version='0.0.1',
+    version='0.0.2',
     description='INCode is an interactive diagram generator of C/C++ source code.',
     keywords='INCode, clang, llvm, diagram, generator',
     author='R. Knuus',

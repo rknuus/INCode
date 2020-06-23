@@ -1,6 +1,6 @@
 # Copyright (C) 2020 R. Knuus
 
-from INCode.call_tree_manager import CallTreeManager
+from INCode.call_tree_manager import CallTreeManager, CallTreeManagerState
 from tests.test_environment_generation import generate_file
 import pytest
 
@@ -77,6 +77,7 @@ def test_given_tu_referencing_function_in_other_tu__load_definition_grows_call_t
         manager.select_tu(file_name)
         root = manager.select_root('g()')
     with generate_file('f.cpp', 'void f() { f(); }\n') as file_name:
+        manager.state_ = CallTreeManagerState.READY_TO_SELECT_TU
         manager.open(file_name)  # TODO(KNR): a hack, use a compilation DB instead
         manager.load_definition('f()')
     children = manager.get_calls_of(root.name)
